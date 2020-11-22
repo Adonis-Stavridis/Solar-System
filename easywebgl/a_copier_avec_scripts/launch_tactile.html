@@ -1,0 +1,46 @@
+<!-- EasyWebGL scrip launcher for tactile device-->
+<!-- Customize path and default script-->
+<!-- usage copy in the dir of your scripts -->
+<!-- usage dir/launch_tactile.html?script (no.js)  -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>EasyWebGL</title>
+	<!-- <link rel="icon" type="image/png" href="favicon.png" /> -->
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+	<div id="canv_cons">
+		<canvas id="webgl-canvas"></canvas>
+		<pre id="console"></pre>
+	</div>
+	<div id="IS">
+		<div id="InterfaceToggler">Inter</div>
+		<div id="ConsoleToggler">Console</div>
+		<div id="Interface"></div>
+		<div id="ShaderZone"></div>
+	</div>
+</body>
+
+<!-- change path if easywebgl is not at the root of server -->
+<link rel="stylesheet" type="text/css" href="/easywebgl/easy_wgl_tactile.css">
+<script  src="/easywebgl/thirdparties.js"></script>
+<script src="/easywebgl/easy_wgl_common.js"></script>
+<script src="/easywebgl/easy_wgl_tactile.js"></script>
+
+<!-- possible to customize DefaultScriptName  -->
+<script>
+	// change name of default script !
+	const DefaultScriptName = "default"; // no .js
+	let local_script = document.createElement('script');;
+	let fjs = window.location.href.split('?');
+	const name =  (fjs.length>1) ? fjs[1] : DefaultScriptName;
+	document.title = 'Easy WebGL '+ name; 
+	local_script.type = 'text/javascript';
+	local_script.src = name + ".js";
+	document.body.appendChild(local_script);
+	var script_params = fjs.slice(2);
+</script>
+</html>

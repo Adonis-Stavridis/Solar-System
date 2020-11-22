@@ -1,0 +1,68 @@
+<!-- usage copy in the dir of your scripts -->
+<!-- usage dir/index.html : generate lauch list links  -->
+<!--    or dir/index.html?script (no.js)  -->
+<!--    or dir/?script (no.js)  -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>EasyWebGL</title>
+	<meta charset="utf-8">
+	<style>
+	body 
+	{
+		margin:40px;
+		background-color: black;
+		color:white;
+		font-size: larger;
+	}
+	a,h1 {color:white;}
+	a:focus {color:yellow;}
+</style>
+</head>
+<body id="body_list_js">
+	<h1>Demos</h1>
+</body>
+
+<script>
+// Mettez ici la liste de vos scripts:
+liste_js = ["tp1","tp2"];
+
+let bo = document.getElementById("body_list_js")
+let launcher = "";
+if ("ontouchstart" in window)
+{
+	launcher = "launch_tactile.html?";
+	msg = "Tactile device detected";
+}
+else
+{
+	launcher = "launch.html?";
+	msg = "Desktop device detected";
+}
+
+let fjs = window.location.href.split('?');
+if (fjs.length>1)
+{
+	window.location.href = launcher+fjs.slice(1);
+}
+else
+{
+	let p = document.createElement("P");
+	p.innerText = msg;
+	bo.appendChild(p);
+
+	liste_js.forEach(d =>
+	{
+		let anch = document.createElement("A");
+		anch.href =launcher+d;
+		anch.innerText = d
+		bo.appendChild(anch);
+		bo.appendChild(document.createElement("BR"))
+	});
+}
+
+</script>
+	
+</html>
+
+
