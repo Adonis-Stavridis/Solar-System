@@ -5,8 +5,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>EasyWebGL</title>
-	<!-- <link rel="icon" type="image/png" href="favicon.png" /> -->
+	<title>Solar System</title>
+	<link rel="icon" type="image/png" href="sun.png" />
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
@@ -37,7 +37,7 @@
 	let local_script = document.createElement('script');;
 	let fjs = window.location.href.split('?');
 	const name =  (fjs.length>1) ? fjs[1] : DefaultScriptName;
-	document.title = 'Easy WebGL '+ name; 
+	document.title = 'Solar System'; 
 	local_script.type = 'text/javascript';
 	local_script.src = name + ".js";
 	document.body.appendChild(local_script);
