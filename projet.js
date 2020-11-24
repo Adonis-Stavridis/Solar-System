@@ -123,7 +123,7 @@ function draw_wgl() {
   // Render all the planets
   // ...
 
-  // Render asteroÃ¯ds
+  // Render asteroids
   // ...
 
 }
