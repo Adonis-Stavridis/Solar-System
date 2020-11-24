@@ -56,71 +56,84 @@ let bodies = {
     'scale': 0.1,
     'rotation': 0,
     'positionOffset': getRandomMinMax(0, 360),
-    'speed': getRandomMinMax(10, 25)
+    'year': getRandomMinMax(1, 10),
+    'day': 0
   },
   'mercury': {
     'distance': 0.2,
     'scale': 0.002,
     'rotation': 0.1,
     'positionOffset': getRandomMinMax(0, 360),
-    'speed': getRandomMinMax(10, 25)
+    'year': getRandomMinMax(1, 10),
+    'day': getRandomMinMax(1, 10)
   },
   'venus': {
     'distance': 0.4,
     'scale': 0.005,
     'rotation': 177,
     'positionOffset': getRandomMinMax(0, 360),
-    'speed': getRandomMinMax(10, 25)
+    'year': getRandomMinMax(1, 10),
+    'day': getRandomMinMax(1, 10)
   },
   'earth':  {
     'distance': 0.7,
     'scale': 0.01,
     'rotation': 24,
     'positionOffset': getRandomMinMax(0, 360),
-    'speed': getRandomMinMax(10, 25)
+    'year': getRandomMinMax(1, 10),
+    'day': getRandomMinMax(1, 10)
   },
   'mars':  {
     'distance': 1,
     'scale': 0.008,
     'rotation': 25,
     'positionOffset': getRandomMinMax(0, 360),
-    'speed': getRandomMinMax(10, 25)
+    'year': getRandomMinMax(1, 10),
+    'day': getRandomMinMax(1, 10)
   },
   'jupiter':  {
     'distance': 1.8,
     'scale': 0.04,
     'rotation': 3,
     'positionOffset': getRandomMinMax(0, 360),
-    'speed': getRandomMinMax(10, 25)
+    'year': getRandomMinMax(1, 10),
+    'day': getRandomMinMax(1, 10)
   },
   'saturn': {
     'distance': 2.2,
     'scale': 0.03,
     'rotation': 27,
     'positionOffset': getRandomMinMax(0, 360),
-    'speed': getRandomMinMax(10, 25)
+    'year': getRandomMinMax(1, 10),
+    'day': getRandomMinMax(1, 10)
   },
   'uranus':  {
     'distance': 2.6,
     'scale': 0.02,
     'rotation': 98,
     'positionOffset': getRandomMinMax(0, 360),
-    'speed': getRandomMinMax(10, 25)
+    'year': getRandomMinMax(1, 10),
+    'day': getRandomMinMax(1, 10)
   },
   'neptune':  {
     'distance': 3,
     'scale': 0.01,
     'rotation': 30,
     'positionOffset': getRandomMinMax(0, 360),
-    'speed': getRandomMinMax(10, 25)
+    'year': getRandomMinMax(1, 10),
+    'day': getRandomMinMax(1, 10)
   }
 };
+
+let labels = [];
+let radio = null;
+let selectedBody = 'sun';
 
 function init_wgl() {
   ewgl.continuous_update = true;
 
   // Generate all the textures
-  for (var planet in bodies) {
+  for (var body in bodies) {
     let tex = Texture2d(
       [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
       [gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR],
@@ -134,8 +147,8 @@ function init_wgl() {
       [gl.TEXTURE_MIN_LOD, 5.0],
       [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
     );
-    tex.load('images/' + planet + '.jpg', gl.RGB8);
-    textures[planet] = tex;
+    tex.load('images/' + body + '.jpg', gl.RGB8);
+    textures[body] = tex;
   }
 
   // texture cubeMap for the skybox
@@ -153,12 +166,16 @@ function init_wgl() {
   mesh = Mesh.Sphere(32);
   meshRenderer = mesh.renderer(0, 1, 2);
 
-  for (var planet in bodies) {
-    bodies[planet]['path'] = Mesh.Tore(5, 100, 0.0000001, bodies[planet]['distance']).renderer(0, 1, 2);
+  for (var body in bodies) {
+    if (body == 'sun') {
+      bodies[body]['path'] = null;
+    } else {
+      bodies[body]['path'] = Mesh.Tore(5, 100, 0.0000001, bodies[body]['distance']).renderer(0, 1, 2);
+    }
   }
 
   // Set the radius and the center of the scene
-  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 2);
+  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 5);
   ewgl.scene_camera.set_scene_center(mesh.BB.center);
 
   // Asteroid Belt
@@ -201,10 +218,18 @@ function init_wgl() {
   //   // Create Shader programs ...
   //   // Create FBOs with the linked textures ...
 
-  //   // User interface
-  //   UserInterface.begin();
-  //   // ...
-  //   UserInterface.end();
+  // User interface
+  UserInterface.begin(false, true);
+  labels = [];
+  for (var body in bodies) {
+    labels.push(body);
+  }
+  radio = UserInterface.add_radio('V', 'Scene center', labels, 0, updateSelectedBody);
+  UserInterface.end();
+}
+
+function updateSelectedBody() {
+  selectedBody = labels[radio.value];
 }
 
 function getRandomMax(max) {
@@ -233,7 +258,12 @@ function draw_wgl() {
   gl.enable(gl.DEPTH_TEST);
 
   // set scene center according to the selected object
-  // ...
+  ewgl.scene_camera.set_scene_center(
+    Matrix.mult(
+      Matrix.rotateY((ewgl.current_time + bodies[selectedBody]['positionOffset']) * bodies[selectedBody]['year']),
+      Matrix.translate(bodies[selectedBody]['distance'], 0, 0)
+    ).position()
+  );
 
   // Compute the matrices (model - view - projection)
   // ...
@@ -251,22 +281,27 @@ function draw_wgl() {
 
   Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
   Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
-  for (var planet in bodies) {
+  for (var body in bodies) {
     let modelMatrix = Matrix.mult(
-      Matrix.rotateY((ewgl.current_time + bodies[planet]['positionOffset']) * bodies[planet]['speed']),
-      Matrix.translate(bodies[planet]['distance'], 0, 0),
-      Matrix.rotateX(-90 + bodies[planet]['rotation']),
-      Matrix.scale(bodies[planet]['scale'])
+      Matrix.rotateY((ewgl.current_time + bodies[body]['positionOffset']) * bodies[body]['year']),
+      Matrix.translate(bodies[body]['distance'], 0, 0),
+      Matrix.rotateX(bodies[body]['rotation']),
+      Matrix.rotateY(ewgl.current_time * bodies[body]['day']),
+      Matrix.rotateX(-90),
+      Matrix.scale(bodies[body]['scale'])
     );
     Uniforms.uModeMat = modelMatrix;
-    Uniforms.uTexture = textures[planet].bind(0);
+    Uniforms.uTexture = textures[body].bind(0);
     meshRenderer.draw(gl.TRIANGLES);
 
-    modelMatrix = Matrix.mult(
-      Matrix.rotateX(-90)
-    );
-    Uniforms.uModeMat = modelMatrix;
-    bodies[planet]['path'].draw(gl.LINES);
+    let pathRenderer = bodies[body]['path'];
+    if (pathRenderer) {
+      modelMatrix = Matrix.mult(
+        Matrix.rotateX(-90)
+      );
+      Uniforms.uModeMat = modelMatrix;
+      pathRenderer.draw(gl.LINES);
+    }
   }
 
   // Render asteroids
