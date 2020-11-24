@@ -38,6 +38,35 @@ void main()
 }
 `;
 
+var skyboxVertexShader = `#version 300 es
+layout(location=0) in vec3 position_in;
+
+uniform mat4 uSkybMat;
+
+out vec3 texCoord;
+
+void main() 
+{
+	texCoord = position_in;
+	gl_Position = uSkybMat * vec4(position_in, 1.0);
+}
+`;
+
+var skyboxFragmentShader = `#version 300 es
+precision highp float;
+
+in vec3 texCoord;
+
+uniform samplerCube uSkybTex;
+
+out vec4 oFragmentColor;
+
+void main()
+{
+  oFragmentColor = texture(uSkybTex, texCoord);
+}
+`;
+
 //------------------------------------------------------------------------------
 
 // Global variables : textures, FBOs, prog_shaders, mesh, renderer, and a lot of
@@ -47,8 +76,10 @@ let textures = {};
 
 let mesh = null;
 let meshRenderer = null;
+let skyboxRenderer = null;
 
 let shaderProgram = null;
+let skyboxProgram = null;
 
 let bodies = {
   'sun': {
@@ -75,7 +106,7 @@ let bodies = {
     'year': getRandomMinMax(1, 10),
     'day': getRandomMinMax(1, 10)
   },
-  'earth':  {
+  'earth': {
     'distance': 0.7,
     'scale': 0.01,
     'rotation': 24,
@@ -83,7 +114,7 @@ let bodies = {
     'year': getRandomMinMax(1, 10),
     'day': getRandomMinMax(1, 10)
   },
-  'mars':  {
+  'mars': {
     'distance': 1,
     'scale': 0.008,
     'rotation': 25,
@@ -91,7 +122,7 @@ let bodies = {
     'year': getRandomMinMax(1, 10),
     'day': getRandomMinMax(1, 10)
   },
-  'jupiter':  {
+  'jupiter': {
     'distance': 1.8,
     'scale': 0.04,
     'rotation': 3,
@@ -107,7 +138,7 @@ let bodies = {
     'year': getRandomMinMax(1, 10),
     'day': getRandomMinMax(1, 10)
   },
-  'uranus':  {
+  'uranus': {
     'distance': 2.6,
     'scale': 0.02,
     'rotation': 98,
@@ -115,7 +146,7 @@ let bodies = {
     'year': getRandomMinMax(1, 10),
     'day': getRandomMinMax(1, 10)
   },
-  'neptune':  {
+  'neptune': {
     'distance': 3,
     'scale': 0.01,
     'rotation': 30,
@@ -152,15 +183,34 @@ function init_wgl() {
   }
 
   // texture cubeMap for the skybox
-  // let tex_skybox = TextureCubeMap();
-  // tex_skybox.load(["...", "...", "...", "...", "...", "..."]).then(update_wgl);
+  let tex_skybox = TextureCubeMap(
+    [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+    [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
+    [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
+    [gl.TEXTURE_BASE_LEVEL, 0],
+    [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL],
+    [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE],
+    [gl.TEXTURE_MAX_LEVEL, 5],
+    [gl.TEXTURE_MAX_LOD, 0.0],
+    [gl.TEXTURE_MIN_LOD, 5.0],
+    [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
+  );
+  tex_skybox.load([
+    'images/skybox/skybox_milky_way.png',
+    'images/skybox/skybox_milky_way.png',
+    'images/skybox/skybox.png',
+    'images/skybox/skybox.png',
+    'images/skybox/skybox_milky_way.png',
+    'images/skybox/skybox_milky_way.png'
+  ]).then(update_wgl);
+  textures['skybox'] = tex_skybox;
 
   // Create a mesh cube and his renderer
-  // ...
+  skyboxRenderer = Mesh.Cube().renderer(0);
 
   // Create all the shader programs
   shaderProgram = ShaderProgram(vertexShader, fragmentShader, 'basicShader');
-  // ...
+  skyboxProgram = ShaderProgram(skyboxVertexShader, skyboxFragmentShader, 'skyboxShader');
 
   // Create a mesh of a sphere and a renderer
   mesh = Mesh.Sphere(32);
@@ -265,12 +315,16 @@ function draw_wgl() {
     ).position()
   );
 
+
   // Compute the matrices (model - view - projection)
-  // ...
 
   // Render skybox
-  // ...
-  // unbind_texture_cube(); will probably be useful
+  skyboxProgram.bind();
+
+  Uniforms.uSkybMat = ewgl.scene_camera.get_matrix_for_skybox();
+  Uniforms.uSkybTex = textures['skybox'].bind(0);
+  skyboxRenderer.draw(gl.TRIANGLES);
+  unbind_texture_cube();
 
   // ATMOSPHERE
   // ...
