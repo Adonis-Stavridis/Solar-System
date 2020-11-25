@@ -167,7 +167,6 @@ function init_wgl() {
   for (var body in bodies) {
     let tex = Texture2d(
       [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
-      [gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR],
       [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
       [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
       [gl.TEXTURE_BASE_LEVEL, 0],
