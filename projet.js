@@ -69,105 +69,19 @@ void main()
 
 //------------------------------------------------------------------------------
 
-const EARTH_DAY = 23.93;
-const EARTH_YEAR = 365.25;
+const EARTH_DAY__PERIOD = 23.93;
+const EARTH_YEAR_PERIOD = 365.25;
 
-// Global variables : textures, FBOs, prog_shaders, mesh, renderer, and a lot of
-// parameters
+class Body {
+  constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, path) {
+    this.name = name;
+    this.distanceToSun = distanceToSun;
+    this.scale = scale;
+    this.incline = incline;
+    this.positionOffset = getRandomMinMax(0, 360);
+    this.yearPeriod = yearPeriod;
+    this.dayPeriod = dayPeriod;
 
-let textures = {};
-
-let mesh = null;
-let meshRenderer = null;
-let skyboxRenderer = null;
-
-let shaderProgram = null;
-let skyboxProgram = null;
-
-let bodies = {
-  'sun': {
-    'distance': 0,
-    'scale': 1,
-    'rotation': 0,
-    'positionOffset': getRandomMinMax(0, 360),
-    'year': 27 * EARTH_DAY,
-    'day': 27 * EARTH_DAY
-  },
-  'mercury': {
-    'distance': 2.2,
-    'scale': 0.02,
-    'rotation': 0.1,
-    'positionOffset': getRandomMinMax(0, 360),
-    'year': 88.0,
-    'day': 58.64 * EARTH_DAY
-  },
-  'venus': {
-    'distance': 3,
-    'scale': 0.05,
-    'rotation': 177,
-    'positionOffset': getRandomMinMax(0, 360),
-    'year': 224.7,
-    'day': -243.01 * EARTH_DAY
-  },
-  'earth': {
-    'distance': 4.5,
-    'scale': 0.1,
-    'rotation': 24,
-    'positionOffset': getRandomMinMax(0, 360),
-    'year': EARTH_YEAR,
-    'day': EARTH_DAY
-  },
-  'mars': {
-    'distance': 6,
-    'scale': 0.08,
-    'rotation': 25,
-    'positionOffset': getRandomMinMax(0, 360),
-    'year': 689.0,
-    'day': 24.62
-  },
-  'jupiter': {
-    'distance': 10,
-    'scale': 0.4,
-    'rotation': 3,
-    'positionOffset': getRandomMinMax(0, 360),
-    'year': 11.87 * EARTH_YEAR,
-    'day': 9.92
-  },
-  'saturn': {
-    'distance': 14,
-    'scale': 0.3,
-    'rotation': 27,
-    'positionOffset': getRandomMinMax(0, 360),
-    'year': 29.45 * EARTH_YEAR,
-    'day': 10.65
-  },
-  'uranus': {
-    'distance': 20,
-    'scale': 0.2,
-    'rotation': 98,
-    'positionOffset': getRandomMinMax(0, 360),
-    'year': 84.07 * EARTH_YEAR,
-    'day': 17.24
-  },
-  'neptune': {
-    'distance': 25,
-    'scale': 0.1,
-    'rotation': 30,
-    'positionOffset': getRandomMinMax(0, 360),
-    'year': 164.89 * EARTH_YEAR,
-    'day': 16.11
-  }
-};
-
-let labels = [];
-let radio = null;
-let selectedBody = 'sun';
-
-function init_wgl() {
-  ewgl.continuous_update = true;
-
-  // Generate all the textures
-  for (var body in bodies) {
     let tex = Texture2d(
       [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
       [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
@@ -180,9 +94,131 @@ function init_wgl() {
       [gl.TEXTURE_MIN_LOD, 5.0],
       [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
     );
-    tex.load('images/' + body + '.jpg', gl.RGB8);
-    textures[body] = tex;
+    tex.load('images/' + name + '.jpg', gl.RGB8);
+    this.texture = tex;
+    this.shader = shader;
+
+    if (path) {
+      this.path = Mesh.Tore(5, 100, 0.0000001, distanceToSun).renderer(0, 1, 2);
+    } else {
+      this.path = null;
+    }
+
+    this.anchor = Matrix.translate(0, 0, 0);
   }
+
+  render() {
+    this.shader.bind();
+
+    Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
+    Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
+
+    let yearPeriodBodyMat = this.yearPeriodBody();
+    let distanceToSunBodyMat = this.distanceToSunBody();
+    let inclineBodyMat = this.inclineBody();
+    let dayPeriodBodyMat = this.dayPeriodBody();
+    let alignBodyMat = this.alignBody();
+    let scaleBodyMat = this.scaleBody();
+
+    this.anchor = Matrix.mult(
+      yearPeriodBodyMat,
+      distanceToSunBodyMat
+    );
+
+    let modelMatrix = Matrix.mult(
+      yearPeriodBodyMat,
+      distanceToSunBodyMat,
+      inclineBodyMat,
+      dayPeriodBodyMat,
+      alignBodyMat,
+      scaleBodyMat
+    );
+    Uniforms.uModeMat = modelMatrix;
+    Uniforms.uTexture = this.texture.bind(0);
+    meshRenderer.draw(gl.TRIANGLES);
+
+    let pathRenderer = this.path;
+    if (pathRenderer) {
+      modelMatrix = this.alignBody();
+      Uniforms.uModeMat = modelMatrix;
+      pathRenderer.draw(gl.LINES);
+    }
+
+    gl.useProgram(null);
+  }
+
+  get getName() {
+    return this.name;
+  }
+
+  get getAnchor() {
+    return this.anchor;
+  }
+
+  scaleBody() {
+    return Matrix.scale(this.scale);
+  }
+
+  alignBody() {
+    return Matrix.rotateX(-90);
+  }
+
+  dayPeriodBody() {
+    return Matrix.rotateY(ewgl.current_time * (360 / this.dayPeriod));
+  }
+
+  inclineBody() {
+    return Matrix.rotateX(this.incline)
+  }
+
+  distanceToSunBody() {
+    return Matrix.translate(this.distanceToSun, 0, 0);
+  }
+
+  yearPeriodBody() {
+    return Matrix.rotateY((ewgl.current_time + this.positionOffset) * (360 / this.yearPeriod));
+  }
+}
+
+//------------------------------------------------------------------------------
+
+// Global variables : textures, FBOs, prog_shaders, mesh, renderer, and a lot of
+// parameters
+
+let skyboxTexture = {};
+
+let mesh = null;
+let meshRenderer = null;
+let skyboxRenderer = null;
+
+let shaderProgram = null;
+let skyboxProgram = null;
+
+let bodies = null;
+let bodyNames = [];
+
+let radio = null;
+let cb = null;
+let selectedBody = 'sun';
+
+function init_wgl() {
+  ewgl.continuous_update = true;
+
+  // Create all the shader programs
+  shaderProgram = ShaderProgram(vertexShader, fragmentShader, 'basicShader');
+  skyboxProgram = ShaderProgram(skyboxVertexShader, skyboxFragmentShader, 'skyboxShader');
+
+  bodies = {
+    'sun': new Body('sun', 0, 1, 0, 27 * EARTH_DAY__PERIOD, 27 * EARTH_DAY__PERIOD, shaderProgram, false),
+    'mercury': new Body('mercury', 2.2, 0.02, 0.1, 88.0, 58.64 * EARTH_DAY__PERIOD, shaderProgram, true),
+    'venus': new Body('venus', 3, 0.05, 177, 224.7, -243.01 * EARTH_DAY__PERIOD, shaderProgram, true),
+    'earth': new Body('earth', 4.5, 0.1, 24, EARTH_YEAR_PERIOD, EARTH_DAY__PERIOD, shaderProgram, true),
+    'mars': new Body('mars', 6, 0.08, 25, 689.0, 24.62, shaderProgram, true),
+    'jupiter': new Body('jupiter', 10, 0.4, 3, 11.87 * EARTH_YEAR_PERIOD, 9.92, shaderProgram, true),
+    'saturn': new Body('saturn', 14, 0.3, 27, 29.45 * EARTH_YEAR_PERIOD, 10.65, shaderProgram, true),
+    'uranus': new Body('uranus', 20, 0.2, 98, 84.07 * EARTH_YEAR_PERIOD, 17.24, shaderProgram, true),
+    'neptune': new Body('neptune', 25, 0.1, 30, 164.89 * EARTH_YEAR_PERIOD, 16.11, shaderProgram, true)
+  };
 
   // texture cubeMap for the skybox
   let tex_skybox = TextureCubeMap(
@@ -205,26 +241,14 @@ function init_wgl() {
     'images/skybox/skybox_milky_way.png',
     'images/skybox/skybox_milky_way.png'
   ]).then(update_wgl);
-  textures['skybox'] = tex_skybox;
+  skyboxTexture = tex_skybox;
 
   // Create a mesh cube and his renderer
   skyboxRenderer = Mesh.Cube().renderer(0);
 
-  // Create all the shader programs
-  shaderProgram = ShaderProgram(vertexShader, fragmentShader, 'basicShader');
-  skyboxProgram = ShaderProgram(skyboxVertexShader, skyboxFragmentShader, 'skyboxShader');
-
   // Create a mesh of a sphere and a renderer
   mesh = Mesh.Sphere(32);
   meshRenderer = mesh.renderer(0, 1, 2);
-
-  for (var body in bodies) {
-    if (body == 'sun') {
-      bodies[body]['path'] = null;
-    } else {
-      bodies[body]['path'] = Mesh.Tore(5, 100, 0.0000001, bodies[body]['distance']).renderer(0, 1, 2);
-    }
-  }
 
   // Set the radius and the center of the scene
   ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 15);
@@ -272,16 +296,20 @@ function init_wgl() {
 
   // User interface
   UserInterface.begin(false, true);
-  labels = [];
   for (var body in bodies) {
-    labels.push(body);
+    bodyNames.push(body);
   }
-  radio = UserInterface.add_radio('V', 'Scene center', labels, 0, updateSelectedBody);
+  radio = UserInterface.add_radio('V', 'Scene center', bodyNames, 0, updateSelectedBody);
+  cb = UserInterface.add_check_box('Continuous update', true, updateContinuousUpdate);
   UserInterface.end();
 }
 
 function updateSelectedBody() {
-  selectedBody = labels[radio.value];
+  selectedBody = bodyNames[radio.value];
+}
+
+function updateContinuousUpdate() {
+  ewgl.continuous_update = cb.checked;
 }
 
 function getRandomMax(max) {
@@ -309,22 +337,13 @@ function draw_wgl() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
 
-  // set scene center according to the selected object
-  ewgl.scene_camera.set_scene_center(
-    Matrix.mult(
-      Matrix.rotateY((ewgl.current_time + bodies[selectedBody]['positionOffset']) * (360 / bodies[selectedBody]['year'])),
-      Matrix.translate(bodies[selectedBody]['distance'], 0, 0)
-    ).position()
-  );
-
-
   // Compute the matrices (model - view - projection)
 
   // Render skybox
   skyboxProgram.bind();
 
   Uniforms.uSkybMat = ewgl.scene_camera.get_matrix_for_skybox();
-  Uniforms.uSkybTex = textures['skybox'].bind(0);
+  Uniforms.uSkybTex = skyboxTexture.bind(0);
   skyboxRenderer.draw(gl.TRIANGLES);
   unbind_texture_cube();
 
@@ -333,32 +352,14 @@ function draw_wgl() {
 
   // Render Sun
   // Render all the bodies
-  shaderProgram.bind();
-
-  Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
-  Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
   for (var body in bodies) {
-    let modelMatrix = Matrix.mult(
-      Matrix.rotateY((ewgl.current_time + bodies[body]['positionOffset']) * (360 / bodies[body]['year'])),
-      Matrix.translate(bodies[body]['distance'], 0, 0),
-      Matrix.rotateX(bodies[body]['rotation']),
-      Matrix.rotateY(ewgl.current_time * (360 / bodies[body]['day'])),
-      Matrix.rotateX(-90),
-      Matrix.scale(bodies[body]['scale'])
-    );
-    Uniforms.uModeMat = modelMatrix;
-    Uniforms.uTexture = textures[body].bind(0);
-    meshRenderer.draw(gl.TRIANGLES);
-
-    let pathRenderer = bodies[body]['path'];
-    if (pathRenderer) {
-      modelMatrix = Matrix.mult(
-        Matrix.rotateX(-90)
-      );
-      Uniforms.uModeMat = modelMatrix;
-      pathRenderer.draw(gl.LINES);
-    }
+    bodies[body].render();
   }
+
+  // set scene center according to the selected object
+  ewgl.scene_camera.set_scene_center(
+    bodies[selectedBody].getAnchor.position()
+  );
 
   // Render asteroids
   // ...
