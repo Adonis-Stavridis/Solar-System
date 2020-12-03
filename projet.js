@@ -113,21 +113,15 @@ class Body {
     Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
     Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
 
-    let yearPeriodBodyMat = this.yearPeriodBody();
-    let distanceToSunBodyMat = this.distanceToSunBody();
     let inclineBodyMat = this.inclineBody();
     let dayPeriodBodyMat = this.dayPeriodBody();
     let alignBodyMat = this.alignBody();
     let scaleBodyMat = this.scaleBody();
 
-    this.anchor = Matrix.mult(
-      yearPeriodBodyMat,
-      distanceToSunBodyMat
-    );
+    this.anchor = this.getAnchor();
 
     let modelMatrix = Matrix.mult(
-      yearPeriodBodyMat,
-      distanceToSunBodyMat,
+      this.anchor,
       inclineBodyMat,
       dayPeriodBodyMat,
       alignBodyMat,
@@ -151,8 +145,11 @@ class Body {
     return this.name;
   }
 
-  get getAnchor() {
-    return this.anchor;
+  getAnchor() {
+    let yearPeriodBodyMat = this.yearPeriodBody();
+    let distanceToSunBodyMat = this.distanceToSunBody();
+
+    return Matrix.mult(yearPeriodBodyMat, distanceToSunBodyMat);
   }
 
   scaleBody() {
@@ -306,6 +303,7 @@ function init_wgl() {
 
 function updateSelectedBody() {
   selectedBody = bodyNames[radio.value];
+  update_wgl();
 }
 
 function updateContinuousUpdate() {
@@ -350,16 +348,17 @@ function draw_wgl() {
   // ATMOSPHERE
   // ...
 
+
+  // set scene center according to the selected object
+  ewgl.scene_camera.set_scene_center(
+    bodies[selectedBody].getAnchor().position()
+  );
+
   // Render Sun
   // Render all the bodies
   for (var body in bodies) {
     bodies[body].render();
   }
-
-  // set scene center according to the selected object
-  ewgl.scene_camera.set_scene_center(
-    bodies[selectedBody].getAnchor.position()
-  );
 
   // Render asteroids
   // ...
