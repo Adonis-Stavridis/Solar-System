@@ -69,6 +69,9 @@ void main()
 
 //------------------------------------------------------------------------------
 
+const EARTH_DAY = 23.93;
+const EARTH_YEAR = 365.25;
+
 // Global variables : textures, FBOs, prog_shaders, mesh, renderer, and a lot of
 // parameters
 
@@ -84,75 +87,75 @@ let skyboxProgram = null;
 let bodies = {
   'sun': {
     'distance': 0,
-    'scale': 0.1,
+    'scale': 1,
     'rotation': 0,
     'positionOffset': getRandomMinMax(0, 360),
-    'year': getRandomMinMax(1, 10),
-    'day': 0
+    'year': 27 * EARTH_DAY,
+    'day': 27 * EARTH_DAY
   },
   'mercury': {
-    'distance': 0.2,
-    'scale': 0.002,
+    'distance': 2.2,
+    'scale': 0.02,
     'rotation': 0.1,
     'positionOffset': getRandomMinMax(0, 360),
-    'year': getRandomMinMax(1, 10),
-    'day': getRandomMinMax(1, 10)
+    'year': 88.0,
+    'day': 58.64 * EARTH_DAY
   },
   'venus': {
-    'distance': 0.4,
-    'scale': 0.005,
+    'distance': 3,
+    'scale': 0.05,
     'rotation': 177,
     'positionOffset': getRandomMinMax(0, 360),
-    'year': getRandomMinMax(1, 10),
-    'day': getRandomMinMax(1, 10)
+    'year': 224.7,
+    'day': -243.01 * EARTH_DAY
   },
   'earth': {
-    'distance': 0.7,
-    'scale': 0.01,
+    'distance': 4.5,
+    'scale': 0.1,
     'rotation': 24,
     'positionOffset': getRandomMinMax(0, 360),
-    'year': getRandomMinMax(1, 10),
-    'day': getRandomMinMax(1, 10)
+    'year': EARTH_YEAR,
+    'day': EARTH_DAY
   },
   'mars': {
-    'distance': 1,
-    'scale': 0.008,
+    'distance': 6,
+    'scale': 0.08,
     'rotation': 25,
     'positionOffset': getRandomMinMax(0, 360),
-    'year': getRandomMinMax(1, 10),
-    'day': getRandomMinMax(1, 10)
+    'year': 689.0,
+    'day': 24.62
   },
   'jupiter': {
-    'distance': 1.8,
-    'scale': 0.04,
+    'distance': 10,
+    'scale': 0.4,
     'rotation': 3,
     'positionOffset': getRandomMinMax(0, 360),
-    'year': getRandomMinMax(1, 10),
-    'day': getRandomMinMax(1, 10)
+    'year': 11.87 * EARTH_YEAR,
+    'day': 9.92
   },
   'saturn': {
-    'distance': 2.2,
-    'scale': 0.03,
+    'distance': 14,
+    'scale': 0.3,
     'rotation': 27,
     'positionOffset': getRandomMinMax(0, 360),
-    'year': getRandomMinMax(1, 10),
-    'day': getRandomMinMax(1, 10)
+    'year': 29.45 * EARTH_YEAR,
+    'day': 10.65
   },
   'uranus': {
-    'distance': 2.6,
-    'scale': 0.02,
+    'distance': 20,
+    'scale': 0.2,
     'rotation': 98,
     'positionOffset': getRandomMinMax(0, 360),
-    'year': getRandomMinMax(1, 10),
-    'day': getRandomMinMax(1, 10)
+    'year': 84.07 * EARTH_YEAR,
+    'day': 17.24
   },
   'neptune': {
-    'distance': 3,
-    'scale': 0.01,
+    'distance': 25,
+    'scale': 0.1,
     'rotation': 30,
     'positionOffset': getRandomMinMax(0, 360),
-    'year': getRandomMinMax(1, 10),
-    'day': getRandomMinMax(1, 10)
+    'year': 164.89 * EARTH_YEAR,
+    'day': 16.11
   }
 };
 
@@ -224,7 +227,7 @@ function init_wgl() {
   }
 
   // Set the radius and the center of the scene
-  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 5);
+  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 15);
   ewgl.scene_camera.set_scene_center(mesh.BB.center);
 
   // Asteroid Belt
@@ -309,7 +312,7 @@ function draw_wgl() {
   // set scene center according to the selected object
   ewgl.scene_camera.set_scene_center(
     Matrix.mult(
-      Matrix.rotateY((ewgl.current_time + bodies[selectedBody]['positionOffset']) * bodies[selectedBody]['year']),
+      Matrix.rotateY((ewgl.current_time + bodies[selectedBody]['positionOffset']) * (360 / bodies[selectedBody]['year'])),
       Matrix.translate(bodies[selectedBody]['distance'], 0, 0)
     ).position()
   );
@@ -336,10 +339,10 @@ function draw_wgl() {
   Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
   for (var body in bodies) {
     let modelMatrix = Matrix.mult(
-      Matrix.rotateY((ewgl.current_time + bodies[body]['positionOffset']) * bodies[body]['year']),
+      Matrix.rotateY((ewgl.current_time + bodies[body]['positionOffset']) * (360 / bodies[body]['year'])),
       Matrix.translate(bodies[body]['distance'], 0, 0),
       Matrix.rotateX(bodies[body]['rotation']),
-      Matrix.rotateY(ewgl.current_time * bodies[body]['day']),
+      Matrix.rotateY(ewgl.current_time * (360 / bodies[body]['day'])),
       Matrix.rotateX(-90),
       Matrix.scale(bodies[body]['scale'])
     );
