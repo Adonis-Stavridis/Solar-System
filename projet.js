@@ -5,7 +5,7 @@
 //------------------------------------------------------------------------------
 
 // All the vertex and fragment shaders ...
-var vertexShader = `#version 300 es
+var basicVertexShader = `#version 300 es
 layout(location=0) in vec3 position_in;
 layout(location=1) in vec3 normals_in;
 layout(location=2) in vec2 texture_in;
@@ -23,7 +23,7 @@ void main()
 }
 `;
 
-var fragmentShader = `#version 300 es
+var basicFragmentShader = `#version 300 es
 precision highp float;
 
 in vec2 texCoord;
@@ -204,7 +204,7 @@ function init_wgl() {
   ewgl.continuous_update = true;
 
   // Create all the shader programs
-  shaderProgram = ShaderProgram(vertexShader, fragmentShader, 'basicShader');
+  shaderProgram = ShaderProgram(basicVertexShader, basicFragmentShader, 'basicShader');
   skyboxProgram = ShaderProgram(skyboxVertexShader, skyboxFragmentShader, 'skyboxShader');
 
   bodies = {
@@ -250,7 +250,7 @@ function init_wgl() {
   meshRenderer = mesh.renderer(0, 1, 2);
 
   // Set the radius and the center of the scene
-  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 25);
+  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 60);
   ewgl.scene_camera.set_scene_center(mesh.BB.center);
 
   // Asteroid Belt
