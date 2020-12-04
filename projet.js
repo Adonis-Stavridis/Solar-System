@@ -107,7 +107,7 @@ class Body {
     this.anchor = Matrix.translate(0, 0, 0);
   }
 
-  render() {
+  render(renderPath = true) {
     this.shader.bind();
 
     Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
@@ -132,7 +132,7 @@ class Body {
     meshRenderer.draw(gl.TRIANGLES);
 
     let pathRenderer = this.path;
-    if (pathRenderer) {
+    if (pathRenderer && renderPath) {
       modelMatrix = this.alignBody();
       Uniforms.uModeMat = modelMatrix;
       pathRenderer.draw(gl.LINES);
@@ -173,7 +173,7 @@ class Body {
   }
 
   yearPeriodBody() {
-    return Matrix.rotateY((ewgl.current_time + this.positionOffset) * (360 / this.yearPeriod));
+    return Matrix.rotateY((ewgl.current_time * (360 / this.yearPeriod)) + this.positionOffset);
   }
 }
 
@@ -195,8 +195,10 @@ let bodies = null;
 let bodyNames = [];
 
 let radio = null;
-let cb = null;
+let contUpdtCheckbox = null;
 let selectedBody = 'sun';
+let renderPathCheckbox = null;
+let renderPathBool = true;
 
 function init_wgl() {
   ewgl.continuous_update = true;
@@ -211,10 +213,10 @@ function init_wgl() {
     'venus': new Body('venus', 3, 0.05, 177, 224.7, -243.01 * EARTH_DAY__PERIOD, shaderProgram, true),
     'earth': new Body('earth', 4.5, 0.1, 24, EARTH_YEAR_PERIOD, EARTH_DAY__PERIOD, shaderProgram, true),
     'mars': new Body('mars', 6, 0.08, 25, 689.0, 24.62, shaderProgram, true),
-    'jupiter': new Body('jupiter', 10, 0.4, 3, 11.87 * EARTH_YEAR_PERIOD, 9.92, shaderProgram, true),
-    'saturn': new Body('saturn', 14, 0.3, 27, 29.45 * EARTH_YEAR_PERIOD, 10.65, shaderProgram, true),
-    'uranus': new Body('uranus', 20, 0.2, 98, 84.07 * EARTH_YEAR_PERIOD, 17.24, shaderProgram, true),
-    'neptune': new Body('neptune', 25, 0.1, 30, 164.89 * EARTH_YEAR_PERIOD, 16.11, shaderProgram, true)
+    'jupiter': new Body('jupiter', 15, 0.4, 3, 11.87 * EARTH_YEAR_PERIOD, 9.92, shaderProgram, true),
+    'saturn': new Body('saturn', 22, 0.3, 27, 29.45 * EARTH_YEAR_PERIOD, 10.65, shaderProgram, true),
+    'uranus': new Body('uranus', 30, 0.2, 98, 84.07 * EARTH_YEAR_PERIOD, 17.24, shaderProgram, true),
+    'neptune': new Body('neptune', 36, 0.1, 30, 164.89 * EARTH_YEAR_PERIOD, 16.11, shaderProgram, true)
   };
 
   // texture cubeMap for the skybox
@@ -248,7 +250,7 @@ function init_wgl() {
   meshRenderer = mesh.renderer(0, 1, 2);
 
   // Set the radius and the center of the scene
-  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 15);
+  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 25);
   ewgl.scene_camera.set_scene_center(mesh.BB.center);
 
   // Asteroid Belt
@@ -292,12 +294,19 @@ function init_wgl() {
   //   // Create FBOs with the linked textures ...
 
   // User interface
-  UserInterface.begin(false, true);
   for (var body in bodies) {
     bodyNames.push(body);
   }
+  UserInterface.set_dark_theme();
+
+  UserInterface.begin(false, true);
+  UserInterface.add_br();
+  contUpdtCheckbox = UserInterface.add_check_box('Continuous update', true, updateContinuousUpdate);
+  UserInterface.add_br();
   radio = UserInterface.add_radio('V', 'Scene center', bodyNames, 0, updateSelectedBody);
-  cb = UserInterface.add_check_box('Continuous update', true, updateContinuousUpdate);
+  UserInterface.add_br();
+  renderPathCheckbox = UserInterface.add_check_box('Render path', true, updateRenderPathBool);
+  UserInterface.add_br();
   UserInterface.end();
 }
 
@@ -307,7 +316,12 @@ function updateSelectedBody() {
 }
 
 function updateContinuousUpdate() {
-  ewgl.continuous_update = cb.checked;
+  ewgl.continuous_update = contUpdtCheckbox.checked;
+}
+
+function updateRenderPathBool() {
+  renderPathBool = renderPathCheckbox.checked;
+  update_wgl();
 }
 
 function getRandomMax(max) {
@@ -357,7 +371,7 @@ function draw_wgl() {
   // Render Sun
   // Render all the bodies
   for (var body in bodies) {
-    bodies[body].render();
+    bodies[body].render(renderPathBool);
   }
 
   // Render asteroids
