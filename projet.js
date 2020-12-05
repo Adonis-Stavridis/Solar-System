@@ -50,28 +50,12 @@ out vec2 texCoord_out;
 void main()
 {
   texCoord_out = texture_in;
-  gl_Position = uProjMat * uViewMat * uModeMat * vec4( position_in, 1.0 );
+  gl_Position = uProjMat * uViewMat * uModeMat * vec4(position_in, 1.0);
 }
 `;
 
-// Sun fragment shader
-let sunFragmentShader = `#version 300 es
-precision highp float;
-
-in vec2 texCoord_out;
-
-uniform sampler2D uTexture;
-
-out vec4 oFragmentColor;
-
-void main()
-{
-  oFragmentColor = texture(uTexture, texCoord_out);
-}
-`;
-
-// Path fragment shader
-let pathFragmentShader = `#version 300 es
+// Basic fragment shader
+let basicFragmentShader = `#version 300 es
 precision highp float;
 
 in vec2 texCoord_out;
@@ -107,7 +91,7 @@ void main()
   position_out = (uViewMat * uModeMat * vec4(position_in, 1.0)).xyz;
   normal_out = normalize(uNormMat * normal_in);
 
-  gl_Position = uProjMat * uViewMat * uModeMat * vec4( position_in, 1.0 );
+  gl_Position = uProjMat * uViewMat * uModeMat * vec4(position_in, 1.0);
 }
 `;
 
@@ -203,6 +187,25 @@ void main()
 }
 `;
 
+// Asteroid vertex shader
+let asteroidVertexShader = `#version 300 es
+layout(location=0) in vec3 position_in;
+layout(location=1) in vec3 normal_in;
+layout(location=2) in vec2 texture_in;
+layout(location=3) in mat4 buffer_in;
+
+uniform mat4 uProjMat;
+uniform mat4 uViewMat;
+
+out vec2 texCoord_out;
+
+void main()
+{
+  texCoord_out = texture_in;
+  gl_Position = uProjMat * uViewMat * buffer_in * vec4(position_in, 1.0);
+}
+`;
+
 // #############################################################################
 //  FUNCTIONS
 // #############################################################################
@@ -272,8 +275,6 @@ class Skybox {
     gl.useProgram(null);
   }
 }
-
-//------------------------------------------------------------------------------
 
 const EARTH_DAY__PERIOD = 23.93;
 const EARTH_YEAR_PERIOD = 365.25;
@@ -517,7 +518,68 @@ class Earth extends Planet {
   }
 }
 
-//------------------------------------------------------------------------------
+class AsteroidBelt {
+  constructor(name, distanceToSun, shader, number, threshold) {
+    this.name = name;
+    this.distanceToSun = distanceToSun;
+    this.shader = shader;
+
+    let tex = Texture2d(
+      [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+      [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
+      [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
+      [gl.TEXTURE_BASE_LEVEL, 0],
+      [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL],
+      [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE],
+      [gl.TEXTURE_MAX_LEVEL, 5],
+      [gl.TEXTURE_MAX_LOD, 0.0],
+      [gl.TEXTURE_MIN_LOD, 5.0],
+      [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
+    );
+    tex.load('rock/rock.png', gl.RGB8);
+    this.texture = tex;
+
+    const matrixData = new Float32Array(4 * 4 * number);
+    for (let i = 0; i < number; ++i) {
+      let cosinus = distanceToSun * Math.cos(i);
+      let sinus = distanceToSun * Math.sin(i);
+
+      let model = Matrix.translate(getRandomMinMax(cosinus - threshold, cosinus + threshold), getRandomMinMax(-threshold, threshold), getRandomMinMax(sinus - threshold, sinus + threshold));
+      model = model.mult(Matrix.scale(getRandomMinMax(0.005, 0.01)));
+
+      let index = 16 * i;
+      matrixData.set(model.data, index);
+    }
+
+    const matrixBuffer = VBO(matrixData);
+
+    Mesh.loadObjFile("rock/rock.obj").then((meshes) => {
+      this.meshRenderer = meshes[0].instanced_renderer([
+        [3, matrixBuffer, 1, 4 * 4, 0 * 4, 4],
+        [4, matrixBuffer, 1, 4 * 4, 1 * 4, 4],
+        [5, matrixBuffer, 1, 4 * 4, 2 * 4, 4],
+        [6, matrixBuffer, 1, 4 * 4, 3 * 4, 4]
+      ], 0, 1, 2);
+    });
+  }
+
+  render() {
+    if (!this.meshRenderer) { 
+      return;
+    }
+
+    this.shader.bind();
+
+    Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
+    Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
+    Uniforms.uTexture = this.texture.bind(0);
+    this.meshRenderer.draw(gl.TRIANGLES, this.number);
+
+    gl.useProgram(null);
+  }
+
+  renderPath() { }
+}
 
 class Interface {
   constructor(bodies) {
@@ -559,6 +621,10 @@ let bodies = null;
 let skybox = null;
 let userInterface = null;
 
+let asteroidShader = null;
+let asteroidTexture = null;
+let asteroidRenderer = null;
+
 // -----------------------------------------------------------------------------
 //  INIT
 // -----------------------------------------------------------------------------
@@ -567,7 +633,7 @@ function init_wgl() {
 
   // Setup skybox
   let skyboxShader = ShaderProgram(skyboxVertexShader, skyboxFragmentShader, 'skyboxShader');
-  let skyboxRenderer = Mesh.Cube().renderer(0);
+  let skyboxRenderer = Mesh.Cube().renderer(0, 1, 2, 3, 4);
 
   // Create skybox
   skybox = new Skybox([
@@ -580,33 +646,79 @@ function init_wgl() {
   ], skyboxShader, skyboxRenderer);
 
   // Setup bodies
-  let pathShader = ShaderProgram(basicVertexShader, pathFragmentShader, 'pathShader');
+  let basicShader = ShaderProgram(basicVertexShader, basicFragmentShader, 'basicShader');
   let planetShader = ShaderProgram(planetVertexShader, planetFragmentShader, 'planetShader');
   let earthShader = ShaderProgram(planetVertexShader, earthFragmentShader, 'earthShader');
-  let sunShader = ShaderProgram(basicVertexShader, sunFragmentShader, 'sunShader');
+  asteroidShader = ShaderProgram(asteroidVertexShader, basicFragmentShader, 'asteroidShader');
   let mesh = Mesh.Sphere(32);
-  let meshRenderer = mesh.renderer(0, 1, 2);
+  let meshRenderer = mesh.renderer(0, 1, 2, 3, 4);
 
   // Create bodies
-  let sun = new Sun('sun', 0, 1, 0, 27 * EARTH_DAY__PERIOD, 27 * EARTH_DAY__PERIOD, sunShader, meshRenderer, 10.0);
+  let sun = new Sun('sun', 0, 1, 0, 27 * EARTH_DAY__PERIOD, 27 * EARTH_DAY__PERIOD, basicShader, meshRenderer, 10.0);
   bodies = {
     'sun': sun,
-    'mercury': new Planet('mercury', 2.2, 0.02, 0.1, 88.0, 58.64 * EARTH_DAY__PERIOD, planetShader, meshRenderer, pathShader, sun),
-    'venus': new Planet('venus', 3, 0.05, 177, 224.7, -243.01 * EARTH_DAY__PERIOD, planetShader, meshRenderer, pathShader, sun),
-    'earth': new Earth('earth', 4.5, 0.1, 24, EARTH_YEAR_PERIOD, EARTH_DAY__PERIOD, earthShader, meshRenderer, pathShader, sun),
-    'mars': new Planet('mars', 6, 0.08, 25, 689.0, 24.62, planetShader, meshRenderer, pathShader, sun),
-    'jupiter': new Planet('jupiter', 15, 0.4, 3, 11.87 * EARTH_YEAR_PERIOD, 9.92, planetShader, meshRenderer, pathShader, sun),
-    'saturn': new Planet('saturn', 22, 0.3, 27, 29.45 * EARTH_YEAR_PERIOD, 10.65, planetShader, meshRenderer, pathShader, sun),
-    'uranus': new Planet('uranus', 30, 0.2, 98, 84.07 * EARTH_YEAR_PERIOD, 17.24, planetShader, meshRenderer, pathShader, sun),
-    'neptune': new Planet('neptune', 36, 0.1, 30, 164.89 * EARTH_YEAR_PERIOD, 16.11, planetShader, meshRenderer, pathShader, sun)
+    'mercury': new Planet('mercury', 2.2, 0.02, 0.1, 88.0, 58.64 * EARTH_DAY__PERIOD, planetShader, meshRenderer, basicShader, sun),
+    'venus': new Planet('venus', 3, 0.05, 177, 224.7, -243.01 * EARTH_DAY__PERIOD, planetShader, meshRenderer, basicShader, sun),
+    'earth': new Earth('earth', 4.5, 0.1, 24, EARTH_YEAR_PERIOD, EARTH_DAY__PERIOD, earthShader, meshRenderer, basicShader, sun),
+    'mars': new Planet('mars', 6, 0.08, 25, 689.0, 24.62, planetShader, meshRenderer, basicShader, sun),
+    'asteroidBelt': new AsteroidBelt('asteroids', 10, asteroidShader, 1000, 2.5),
+    'jupiter': new Planet('jupiter', 16, 0.4, 3, 11.87 * EARTH_YEAR_PERIOD, 9.92, planetShader, meshRenderer, basicShader, sun),
+    'saturn': new Planet('saturn', 26, 0.3, 27, 29.45 * EARTH_YEAR_PERIOD, 10.65, planetShader, meshRenderer, basicShader, sun),
+    'uranus': new Planet('uranus', 34, 0.2, 98, 84.07 * EARTH_YEAR_PERIOD, 17.24, planetShader, meshRenderer, basicShader, sun),
+    'neptune': new Planet('neptune', 40, 0.1, 30, 164.89 * EARTH_YEAR_PERIOD, 16.11, planetShader, meshRenderer, basicShader, sun)
   };
 
   // Setup scene
-  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 60);
+  ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 100);
   ewgl.scene_camera.set_scene_center(mesh.BB.center);
 
   // Create User Interface
   userInterface = new Interface(bodies);
+
+  let number = 1000;
+  let alea = 2.5;
+  let distanceAsteroid = 11;
+
+  let tex = Texture2d(
+    [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+    [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
+    [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
+    [gl.TEXTURE_BASE_LEVEL, 0],
+    [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL],
+    [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE],
+    [gl.TEXTURE_MAX_LEVEL, 5],
+    [gl.TEXTURE_MAX_LOD, 0.0],
+    [gl.TEXTURE_MIN_LOD, 5.0],
+    [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
+  );
+  tex.load('rock/rock.png', gl.RGB8);
+  asteroidTexture = tex;
+
+  const matrixData = new Float32Array(4 * 4 * number);
+  for (let i = 0; i < number; ++i) {
+    let cosinus = distanceAsteroid * Math.cos(i);
+    let sinus = distanceAsteroid * Math.sin(i);
+
+    let model = Matrix.translate(getRandomMinMax(cosinus - alea, cosinus + alea), getRandomMinMax(-alea, alea), getRandomMinMax(sinus - alea, sinus + alea));
+    model = model.mult(Matrix.scale(1.0));
+
+    let index = 16 * i;
+    matrixData.set(model.data, index);
+  }
+
+  const matrixBuffer = VBO(matrixData);
+
+  Mesh.loadObjFile("rock/rock.obj").then((meshes) => {
+    asteroidRenderer = meshes[0].instanced_renderer([
+      [3, matrixBuffer, 1, 4 * 4, 0 * 4, 4],
+      [4, matrixBuffer, 1, 4 * 4, 1 * 4, 4],
+      [5, matrixBuffer, 1, 4 * 4, 2 * 4, 4],
+      [6, matrixBuffer, 1, 4 * 4, 3 * 4, 4]
+    ], 0, 1, 2);
+  });
+
+  gl.clearColor(0, 0, 0, 1);
+  gl.enable(gl.DEPTH_TEST);
 }
 
 // -----------------------------------------------------------------------------
@@ -632,6 +744,15 @@ function draw_wgl() {
       bodies[body].renderPath();
     }
   }
+
+  if (asteroidRenderer) {
+    asteroidShader.bind();
+    Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
+    Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
+    Uniforms.uTexture = asteroidTexture.bind(0);
+    asteroidRenderer.draw(gl.TRIANGLES, 100);
+    gl.useProgram(null);
+  }
 }
 
 function mousedown_wgl(ev) {
@@ -650,49 +771,48 @@ ewgl.launch_3d();
 
 // function resize_wgl(w, h) {
 //   let d = Math.pow(2, 3);
-//   // 
 //   fbo1.resize(w / d, h / d);
 //   fbo2.resize(w / d, h / d);
-//   // Faire varier l'intensite selon la taille
-//   // glow_intensity = 300 - ((w/100) * (h/100));
+// Faire varier l'intensite selon la taille
+// glow_intensity = 300 - ((w/100) * (h/100));
 // }
 
 // Asteroid Belt
-  // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 
-  // Shader Program for asteroids
-  // ...
+// Shader Program for asteroids
+// ...
 
-  // Create a typed array to contain all the 4x4 model matrices of each asteroid
-  //   let nbAsteroids = 0;
+// Create a typed array to contain all the 4x4 model matrices of each asteroid
+//   let nbAsteroids = 0;
 
-  //   const matrixData = new Float32Array(4 * 4 * nbAsteroids);
-  //   // For each asteroid
-  //   for (let i = 0; i < nbAsteroids; ++i) {
-  //     let model;
+//   const matrixData = new Float32Array(4 * 4 * nbAsteroids);
+// For each asteroid
+//   for (let i = 0; i < nbAsteroids; ++i) {
+//     let model;
 
-  //     // Compute a matrix model
+// Compute a matrix model
 
-  //     // Put the matrix model a the right place in the typed array
-  //     let index = 16 * i;
-  //     matrixData.set(model.data, index);
-  //   }
+// Put the matrix model a the right place in the typed array
+//     let index = 16 * i;
+//     matrixData.set(model.data, index);
+//   }
 
-  //   // VBO for model matrix of each instance
-  //   const matrixBuffer = VBO(matrixData);
+// VBO for model matrix of each instance
+//   const matrixBuffer = VBO(matrixData);
 
-  //   // Load the .obj mesh and use an instanced renderer (with 4 VBO, to recreate a 4x4 matrix) to get a lot of asteroids
-  //   Mesh.loadObjFile("rock/rock.obj").then((meshes) => {
-  //     rock_rend = meshes[0].instanced_renderer([
-  //       [3, matrixBuffer, 1, 4 * 4, 0 * 4, 4],
-  //       [4, matrixBuffer, 1, 4 * 4, 1 * 4, 4],
-  //       [5, matrixBuffer, 1, 4 * 4, 2 * 4, 4],
-  //       [6, matrixBuffer, 1, 4 * 4, 3 * 4, 4]],
-  //       0, 1, 2);
-  //   });
-  //   // then, the matrice of an instance can be retrieved in a vertex shader with : layout(location=3) in mat4 instanceMatrix;
-  //   // ----------------------------------------------------------------------------------------------------
+// Load the .obj mesh and use an instanced renderer (with 4 VBO, to recreate a 4x4 matrix) to get a lot of asteroids
+//   Mesh.loadObjFile("rock/rock.obj").then((meshes) => {
+//     rock_rend = meshes[0].instanced_renderer([
+//       [3, matrixBuffer, 1, 4 * 4, 0 * 4, 4],
+//       [4, matrixBuffer, 1, 4 * 4, 1 * 4, 4],
+//       [5, matrixBuffer, 1, 4 * 4, 2 * 4, 4],
+//       [6, matrixBuffer, 1, 4 * 4, 3 * 4, 4]],
+//       0, 1, 2);
+//   });
+// then, the matrice of an instance can be retrieved in a vertex shader with : layout(location=3) in mat4 instanceMatrix;
 
-  //   // ATMOSPHERE (GLOW)
-  //   // Create Shader programs ...
-  //   // Create FBOs with the linked textures ...
+
+// ATMOSPHERE (GLOW)
+// Create Shader programs ...
+// Create FBOs with the linked textures ...
