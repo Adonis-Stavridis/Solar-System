@@ -1,9 +1,10 @@
 "use strict"
 
-//------------------------------------------------------------------------------
-// GLSL
-//------------------------------------------------------------------------------
+// #############################################################################
+//  SHADERS
+// #############################################################################
 
+// Skybox vertex shader
 let skyboxVertexShader = `#version 300 es
 layout(location=0) in vec3 position_in;
 
@@ -18,6 +19,7 @@ void main()
 }
 `;
 
+// Skybox fragment shader
 let skyboxFragmentShader = `#version 300 es
 precision highp float;
 
@@ -33,6 +35,7 @@ void main()
 }
 `;
 
+// Basic vertex shader (for sun and path)
 let basicVertexShader = `#version 300 es
 layout(location=0) in vec3 position_in;
 layout(location=1) in vec3 normal_in;
@@ -51,6 +54,7 @@ void main()
 }
 `;
 
+// Sun fragment shader
 let sunFragmentShader = `#version 300 es
 precision highp float;
 
@@ -66,6 +70,7 @@ void main()
 }
 `;
 
+// Path fragment shader
 let pathFragmentShader = `#version 300 es
 precision highp float;
 
@@ -81,6 +86,7 @@ void main()
 }
 `;
 
+// Planet vertex shader
 let planetVertexShader = `#version 300 es
 layout(location=0) in vec3 position_in;
 layout(location=1) in vec3 normal_in;
@@ -105,6 +111,7 @@ void main()
 }
 `;
 
+// Planet fragment shader
 let planetFragmentShader = `#version 300 es
 precision highp float;
 
@@ -146,6 +153,7 @@ void main()
 }
 `;
 
+// Earth fragment shader
 let earthFragmentShader = `#version 300 es
 precision highp float;
 
@@ -195,16 +203,21 @@ void main()
 }
 `;
 
-//------------------------------------------------------------------------------
+// #############################################################################
+//  FUNCTIONS
+// #############################################################################
 
+// Get random number with ceiling
 function getRandomMax(max) {
   return Math.random() * Math.floor(max);
 }
 
+// Get random number with floor and ceiling
 function getRandomMinMax(min, max) {
   return Math.random() * (max - min) + min;
 }
 
+// Interface function to pause/unpause application
 function updatePause() {
   if (userInterface.pauseCheckbox.checked) {
     pause_wgl();
@@ -213,15 +226,19 @@ function updatePause() {
   }
 }
 
+// Interface function to update selected body
 function updateSelectedBody() {
   userInterface.selectedBody = userInterface.bodyNames[userInterface.sceneCenterRadio.value];
 }
 
+// Interface function to render paths or not
 function updateRenderPathBool() {
   userInterface.renderPathBool = userInterface.renderPathCheckbox.checked;
 }
 
-//------------------------------------------------------------------------------
+// #############################################################################
+//  CLASSES
+// #############################################################################
 
 class Skybox {
   constructor(textures, shader, skyboxRenderer) {
@@ -408,8 +425,8 @@ class Planet extends Body {
     Uniforms.uNormMat = mvm.inverse3transpose();
 
     Uniforms.uTexture = this.texture.bind(0);
-    Uniforms.uLightPosition = sun.getLightPosition;
-    Uniforms.uLightIntensity = sun.getLightIntensity;
+    Uniforms.uLightPosition = this.sun.getLightPosition;
+    Uniforms.uLightIntensity = this.sun.getLightIntensity;
     this.meshRenderer.draw(gl.TRIANGLES);
 
     gl.useProgram(null);
@@ -433,7 +450,7 @@ class Planet extends Body {
 class Earth extends Planet {
   constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun) {
     super(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun);
-    
+
     let texClouds = Texture2d(
       [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
       [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
@@ -492,8 +509,8 @@ class Earth extends Planet {
     Uniforms.uTexture = this.texture.bind(0);
     Uniforms.uTextureClouds = this.textureClouds.bind(1);
     Uniforms.uTextureNight = this.textureNight.bind(2);
-    Uniforms.uLightPosition = sun.getLightPosition;
-    Uniforms.uLightIntensity = sun.getLightIntensity;
+    Uniforms.uLightPosition = this.sun.getLightPosition;
+    Uniforms.uLightIntensity = this.sun.getLightIntensity;
     this.meshRenderer.draw(gl.TRIANGLES);
 
     gl.useProgram(null);
@@ -533,22 +550,26 @@ class Interface {
   }
 }
 
-//------------------------------------------------------------------------------
+// #############################################################################
+//  APPLICATION
+// #############################################################################
 
-// Global variables : textures, FBOs, prog_shaders, mesh, renderer, and a lot of
-// parameters
-
+// Global variables
 let bodies = null;
-let sun = null;
 let skybox = null;
 let userInterface = null;
 
+// -----------------------------------------------------------------------------
+//  INIT
+// -----------------------------------------------------------------------------
 function init_wgl() {
   ewgl.continuous_update = true;
 
+  // Setup skybox
   let skyboxShader = ShaderProgram(skyboxVertexShader, skyboxFragmentShader, 'skyboxShader');
   let skyboxRenderer = Mesh.Cube().renderer(0);
 
+  // Create skybox
   skybox = new Skybox([
     'images/skybox/skybox_milky_way.png',
     'images/skybox/skybox_milky_way.png',
@@ -558,15 +579,16 @@ function init_wgl() {
     'images/skybox/skybox_milky_way.png'
   ], skyboxShader, skyboxRenderer);
 
+  // Setup bodies
   let pathShader = ShaderProgram(basicVertexShader, pathFragmentShader, 'pathShader');
   let planetShader = ShaderProgram(planetVertexShader, planetFragmentShader, 'planetShader');
   let earthShader = ShaderProgram(planetVertexShader, earthFragmentShader, 'earthShader');
   let sunShader = ShaderProgram(basicVertexShader, sunFragmentShader, 'sunShader');
-  let mesh = Mesh.Sphere(64);
+  let mesh = Mesh.Sphere(32);
   let meshRenderer = mesh.renderer(0, 1, 2);
 
-  sun = new Sun('sun', 0, 1, 0, 27 * EARTH_DAY__PERIOD, 27 * EARTH_DAY__PERIOD, sunShader, meshRenderer, 10.0);
-
+  // Create bodies
+  let sun = new Sun('sun', 0, 1, 0, 27 * EARTH_DAY__PERIOD, 27 * EARTH_DAY__PERIOD, sunShader, meshRenderer, 10.0);
   bodies = {
     'sun': sun,
     'mercury': new Planet('mercury', 2.2, 0.02, 0.1, 88.0, 58.64 * EARTH_DAY__PERIOD, planetShader, meshRenderer, pathShader, sun),
@@ -579,11 +601,63 @@ function init_wgl() {
     'neptune': new Planet('neptune', 36, 0.1, 30, 164.89 * EARTH_YEAR_PERIOD, 16.11, planetShader, meshRenderer, pathShader, sun)
   };
 
-  // Set the radius and the center of the scene
+  // Setup scene
   ewgl.scene_camera.set_scene_radius(mesh.BB.radius * 60);
   ewgl.scene_camera.set_scene_center(mesh.BB.center);
 
-  // Asteroid Belt
+  // Create User Interface
+  userInterface = new Interface(bodies);
+}
+
+// -----------------------------------------------------------------------------
+//  DRAW
+// -----------------------------------------------------------------------------
+function draw_wgl() {
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+
+  // Set scene center
+  ewgl.scene_camera.set_scene_center(
+    bodies[userInterface.getSelectedBody].getAnchor.position()
+  );
+
+  // Render skybox
+  skybox.render();
+
+  // Render all the bodies (sun, planets, asteroids)
+  for (let body in bodies) {
+    bodies[body].render();
+    if (userInterface.renderPathBool) {
+      bodies[body].renderPath();
+    }
+  }
+}
+
+function mousedown_wgl(ev) {
+  // if you want to use mouse interaction
+}
+
+function onkeydown_wgl(k) {
+  // if you want to use keyboard interaction
+}
+
+ewgl.launch_3d();
+
+// #############################################################################
+//  TODO
+// #############################################################################
+
+// function resize_wgl(w, h) {
+//   let d = Math.pow(2, 3);
+//   // 
+//   fbo1.resize(w / d, h / d);
+//   fbo2.resize(w / d, h / d);
+//   // Faire varier l'intensite selon la taille
+//   // glow_intensity = 300 - ((w/100) * (h/100));
+// }
+
+// Asteroid Belt
   // ---------------------------------------------------------------------------
 
   // Shader Program for asteroids
@@ -622,61 +696,3 @@ function init_wgl() {
   //   // ATMOSPHERE (GLOW)
   //   // Create Shader programs ...
   //   // Create FBOs with the linked textures ...
-
-  // User interface
-  userInterface = new Interface(bodies);
-}
-
-// function resize_wgl(w, h) {
-//   let d = Math.pow(2, 3);
-//   // 
-//   fbo1.resize(w / d, h / d);
-//   fbo2.resize(w / d, h / d);
-//   // Faire varier l'intensite selon la taille
-//   // glow_intensity = 300 - ((w/100) * (h/100));
-// }
-
-// -----------------------------------------------------------------------------
-//  DRAW
-// -----------------------------------------------------------------------------
-function draw_wgl() {
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.enable(gl.DEPTH_TEST);
-
-  // Compute the matrices (model - view - projection)
-
-  // Render skybox
-  skybox.render();
-
-  // ATMOSPHERE
-  // ...
-
-
-  // set scene center according to the selected object
-  ewgl.scene_camera.set_scene_center(
-    bodies[userInterface.getSelectedBody].getAnchor.position()
-  );
-
-  // Render all the bodies
-  for (let body in bodies) {
-    bodies[body].render();
-    if (userInterface.renderPathBool) {
-      bodies[body].renderPath();
-    }
-  }
-
-  // Render asteroids
-  // ...
-
-}
-
-function mousedown_wgl(ev) {
-  // if you want to use mouse interaction
-}
-
-function onkeydown_wgl(k) {
-  // if you want to use keyboard interaction
-}
-
-ewgl.launch_3d();
