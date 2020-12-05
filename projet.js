@@ -196,13 +196,14 @@ layout(location=3) in mat4 buffer_in;
 
 uniform mat4 uProjMat;
 uniform mat4 uViewMat;
+uniform mat4 uModeMat;
 
 out vec2 texCoord_out;
 
 void main()
 {
   texCoord_out = texture_in;
-  gl_Position = uProjMat * uViewMat * buffer_in * vec4(position_in, 1.0);
+  gl_Position = uProjMat * uViewMat * uModeMat * buffer_in * vec4(position_in, 1.0);
 }
 `;
 
@@ -244,7 +245,16 @@ function updateRenderPathBool() {
 // #############################################################################
 
 class Skybox {
-  constructor(textures, shader, skyboxRenderer) {
+  constructor(shader, skyboxRenderer) {
+    let textures = [
+      'images/skybox/skybox_milky_way.png',
+      'images/skybox/skybox_milky_way.png',
+      'images/skybox/skybox.png',
+      'images/skybox/skybox.png',
+      'images/skybox/skybox_milky_way.png',
+      'images/skybox/skybox_milky_way.png'
+    ];
+
     let tex = TextureCubeMap(
       [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
       [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
@@ -522,7 +532,9 @@ class AsteroidBelt {
   constructor(name, distanceToSun, shader, number, threshold) {
     this.name = name;
     this.distanceToSun = distanceToSun;
+    this.positionOffset = getRandomMinMax(0, 360);
     this.shader = shader;
+    this.number = number;
 
     let tex = Texture2d(
       [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
@@ -544,8 +556,17 @@ class AsteroidBelt {
       let cosinus = distanceToSun * Math.cos(i);
       let sinus = distanceToSun * Math.sin(i);
 
-      let model = Matrix.translate(getRandomMinMax(cosinus - threshold, cosinus + threshold), getRandomMinMax(-threshold, threshold), getRandomMinMax(sinus - threshold, sinus + threshold));
-      model = model.mult(Matrix.scale(getRandomMinMax(0.005, 0.01)));
+      let model = Matrix.mult(
+        Matrix.translate(
+          getRandomMinMax(cosinus - threshold, cosinus + threshold),
+          getRandomMinMax(-0.25, 0.25),
+          getRandomMinMax(sinus - threshold, sinus + threshold)
+        ),
+        Matrix.rotateZ(getRandomMinMax(0, 360)),
+        Matrix.rotateY(getRandomMinMax(0, 360)),
+        Matrix.rotateX(getRandomMinMax(0, 360)),
+        Matrix.scale(getRandomMinMax(0.005, 0.01))
+      );
 
       let index = 16 * i;
       matrixData.set(model.data, index);
@@ -553,6 +574,7 @@ class AsteroidBelt {
 
     const matrixBuffer = VBO(matrixData);
 
+    this.meshRenderer = null;
     Mesh.loadObjFile("rock/rock.obj").then((meshes) => {
       this.meshRenderer = meshes[0].instanced_renderer([
         [3, matrixBuffer, 1, 4 * 4, 0 * 4, 4],
@@ -564,7 +586,7 @@ class AsteroidBelt {
   }
 
   render() {
-    if (!this.meshRenderer) { 
+    if (!this.meshRenderer) {
       return;
     }
 
@@ -572,6 +594,7 @@ class AsteroidBelt {
 
     Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
     Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
+    Uniforms.uModeMat = Matrix.rotateY(ewgl.current_time + this.positionOffset);
     Uniforms.uTexture = this.texture.bind(0);
     this.meshRenderer.draw(gl.TRIANGLES, this.number);
 
@@ -579,6 +602,13 @@ class AsteroidBelt {
   }
 
   renderPath() { }
+
+  get getAnchor() {
+    return Matrix.mult(
+      Matrix.rotateY(ewgl.current_time + this.positionOffset),
+      Matrix.translate(this.distanceToSun, 0.0, 0.0)
+    );
+  }
 }
 
 class Interface {
@@ -636,14 +666,7 @@ function init_wgl() {
   let skyboxRenderer = Mesh.Cube().renderer(0, 1, 2, 3, 4);
 
   // Create skybox
-  skybox = new Skybox([
-    'images/skybox/skybox_milky_way.png',
-    'images/skybox/skybox_milky_way.png',
-    'images/skybox/skybox.png',
-    'images/skybox/skybox.png',
-    'images/skybox/skybox_milky_way.png',
-    'images/skybox/skybox_milky_way.png'
-  ], skyboxShader, skyboxRenderer);
+  skybox = new Skybox(skyboxShader, skyboxRenderer);
 
   // Setup bodies
   let basicShader = ShaderProgram(basicVertexShader, basicFragmentShader, 'basicShader');
@@ -661,7 +684,7 @@ function init_wgl() {
     'venus': new Planet('venus', 3, 0.05, 177, 224.7, -243.01 * EARTH_DAY__PERIOD, planetShader, meshRenderer, basicShader, sun),
     'earth': new Earth('earth', 4.5, 0.1, 24, EARTH_YEAR_PERIOD, EARTH_DAY__PERIOD, earthShader, meshRenderer, basicShader, sun),
     'mars': new Planet('mars', 6, 0.08, 25, 689.0, 24.62, planetShader, meshRenderer, basicShader, sun),
-    'asteroidBelt': new AsteroidBelt('asteroids', 10, asteroidShader, 1000, 2.5),
+    'asteroidBelt': new AsteroidBelt('asteroids', 11, asteroidShader, 5000, 1.0),
     'jupiter': new Planet('jupiter', 16, 0.4, 3, 11.87 * EARTH_YEAR_PERIOD, 9.92, planetShader, meshRenderer, basicShader, sun),
     'saturn': new Planet('saturn', 26, 0.3, 27, 29.45 * EARTH_YEAR_PERIOD, 10.65, planetShader, meshRenderer, basicShader, sun),
     'uranus': new Planet('uranus', 34, 0.2, 98, 84.07 * EARTH_YEAR_PERIOD, 17.24, planetShader, meshRenderer, basicShader, sun),
@@ -674,48 +697,6 @@ function init_wgl() {
 
   // Create User Interface
   userInterface = new Interface(bodies);
-
-  let number = 1000;
-  let alea = 2.5;
-  let distanceAsteroid = 11;
-
-  let tex = Texture2d(
-    [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
-    [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
-    [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
-    [gl.TEXTURE_BASE_LEVEL, 0],
-    [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL],
-    [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE],
-    [gl.TEXTURE_MAX_LEVEL, 5],
-    [gl.TEXTURE_MAX_LOD, 0.0],
-    [gl.TEXTURE_MIN_LOD, 5.0],
-    [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
-  );
-  tex.load('rock/rock.png', gl.RGB8);
-  asteroidTexture = tex;
-
-  const matrixData = new Float32Array(4 * 4 * number);
-  for (let i = 0; i < number; ++i) {
-    let cosinus = distanceAsteroid * Math.cos(i);
-    let sinus = distanceAsteroid * Math.sin(i);
-
-    let model = Matrix.translate(getRandomMinMax(cosinus - alea, cosinus + alea), getRandomMinMax(-alea, alea), getRandomMinMax(sinus - alea, sinus + alea));
-    model = model.mult(Matrix.scale(1.0));
-
-    let index = 16 * i;
-    matrixData.set(model.data, index);
-  }
-
-  const matrixBuffer = VBO(matrixData);
-
-  Mesh.loadObjFile("rock/rock.obj").then((meshes) => {
-    asteroidRenderer = meshes[0].instanced_renderer([
-      [3, matrixBuffer, 1, 4 * 4, 0 * 4, 4],
-      [4, matrixBuffer, 1, 4 * 4, 1 * 4, 4],
-      [5, matrixBuffer, 1, 4 * 4, 2 * 4, 4],
-      [6, matrixBuffer, 1, 4 * 4, 3 * 4, 4]
-    ], 0, 1, 2);
-  });
 
   gl.clearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
@@ -743,15 +724,6 @@ function draw_wgl() {
     if (userInterface.renderPathBool) {
       bodies[body].renderPath();
     }
-  }
-
-  if (asteroidRenderer) {
-    asteroidShader.bind();
-    Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
-    Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
-    Uniforms.uTexture = asteroidTexture.bind(0);
-    asteroidRenderer.draw(gl.TRIANGLES, 100);
-    gl.useProgram(null);
   }
 }
 
