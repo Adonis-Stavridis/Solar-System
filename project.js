@@ -434,7 +434,7 @@ class Sun extends Body {
   get getLightPosition() {
     return Matrix.mult(
       ewgl.scene_camera.get_view_matrix(),
-      this.anchor
+      this.getAnchor
     ).transform(Vec3());
   }
 
