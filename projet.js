@@ -568,7 +568,7 @@ class Earth extends Planet {
 class Saturn extends Planet {
   constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun) {
     super(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun);
-    
+
     this.ringRenderer = Mesh.Tore(5, 100, 0.1, 0.5).renderer(0, 1, 2);
   }
 
