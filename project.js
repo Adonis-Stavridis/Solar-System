@@ -379,7 +379,7 @@ class Body {
 
   // Incline body
   inclineBody(incline = this.incline) {
-    return Matrix.rotateX(incline)
+    return Matrix.rotateX(incline);
   }
 
   // Translate body to distance to sun
