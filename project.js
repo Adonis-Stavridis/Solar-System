@@ -1,6 +1,33 @@
 "use strict"
 
 // #############################################################################
+//  INFORMATION
+
+// Everything has been implemented expect for the glow effect on the sun and the
+// Eath.
+
+// The project should follow the following tree structure :
+// - easywebgl folder
+// - images folder
+//    - skybox folder
+//      - skybox_milky_way_4k.jpg
+//      - skybox_4k.jpg
+//    - 2k_earth.jpg
+//    - ...
+//    - 2k_moon.jpg (extra)
+// - rock folder
+//    - rock.mtl
+//    - rock.obj
+//    - rock.png
+// - index.html
+// - launch_tactile.html
+// - launch.html
+// - project.js
+// #############################################################################
+
+
+
+// #############################################################################
 //  SHADERS
 // #############################################################################
 
@@ -247,12 +274,12 @@ function updateRenderPathBool() {
 class Skybox {
   constructor(shader, skyboxRenderer) {
     let textures = [
-      'images/skybox/skybox_milky_way.png',
-      'images/skybox/skybox_milky_way.png',
-      'images/skybox/skybox.png',
-      'images/skybox/skybox.png',
-      'images/skybox/skybox_milky_way.png',
-      'images/skybox/skybox_milky_way.png'
+      'images/skybox/skybox_milky_way_4k.png',
+      'images/skybox/skybox_milky_way_4k.png',
+      'images/skybox/skybox_4k.png',
+      'images/skybox/skybox_4k.png',
+      'images/skybox/skybox_milky_way_4k.png',
+      'images/skybox/skybox_milky_way_4k.png'
     ];
 
     let tex = TextureCubeMap(
@@ -311,7 +338,7 @@ class Body {
       [gl.TEXTURE_MIN_LOD, 5.0],
       [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
     );
-    tex.load('images/' + name + '.jpg', gl.RGB8);
+    tex.load('images/2k_' + name + '.jpg', gl.RGB8);
     this.texture = tex;
     this.shader = shader;
 
@@ -470,7 +497,7 @@ class Earth extends Planet {
       [gl.TEXTURE_MIN_LOD, 5.0],
       [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
     );
-    texClouds.load('images/' + name + '_clouds.jpg', gl.RGB8);
+    texClouds.load('images/2k_' + name + '_clouds.jpg', gl.RGB8);
     this.textureClouds = texClouds;
 
     let texNight = Texture2d(
@@ -485,7 +512,7 @@ class Earth extends Planet {
       [gl.TEXTURE_MIN_LOD, 5.0],
       [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
     );
-    texNight.load('images/' + name + '_night.jpg', gl.RGB8);
+    texNight.load('images/2k_' + name + '_nightmap.jpg', gl.RGB8);
     this.textureNight = texNight;
 
     let texMoon = Texture2d(
@@ -500,7 +527,7 @@ class Earth extends Planet {
       [gl.TEXTURE_MIN_LOD, 5.0],
       [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
     );
-    texMoon.load('images/moon.jpg', gl.RGB8);
+    texMoon.load('images/2k_moon.jpg', gl.RGB8);
     this.textureMoon = texMoon;
 
     this.moonShader = moonShader;
