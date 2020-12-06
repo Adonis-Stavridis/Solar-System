@@ -2,6 +2,7 @@
 
 // #############################################################################
 //  INFORMATION
+// #############################################################################
 
 // Everything has been implemented expect for the glow effect on the sun and the
 // Eath.
@@ -14,7 +15,7 @@
 //      - skybox_4k.jpg
 //    - 2k_earth.jpg
 //    - ...
-//    - 2k_moon.jpg (extra)
+//    - 2k_moon.jpg (to add)
 // - rock folder
 //    - rock.mtl
 //    - rock.obj
@@ -23,9 +24,6 @@
 // - launch_tactile.html
 // - launch.html
 // - project.js
-// #############################################################################
-
-
 
 // #############################################################################
 //  SHADERS
@@ -62,7 +60,7 @@ void main()
 }
 `;
 
-// Basic vertex shader (for sun and path)
+// Basic vertex shader
 let basicVertexShader = `#version 300 es
 layout(location=0) in vec3 position_in;
 layout(location=1) in vec3 normal_in;
@@ -271,7 +269,9 @@ function updateRenderPathBool() {
 //  CLASSES
 // #############################################################################
 
+// Skybox class
 class Skybox {
+  // Skybox constructor
   constructor(shader, skyboxRenderer) {
     let textures = [
       'images/skybox/skybox_milky_way_4k.png',
@@ -301,6 +301,7 @@ class Skybox {
     this.skyboxRenderer = skyboxRenderer;
   }
 
+  // Skybox render
   render() {
     this.shader.bind();
 
@@ -313,10 +314,13 @@ class Skybox {
   }
 }
 
+// Earth constants
 const EARTH_DAY__PERIOD = 23.93;
 const EARTH_YEAR_PERIOD = 365.25;
 
+// Body class
 class Body {
+  // Body constructor
   constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer) {
     this.name = name;
     this.distanceToSun = distanceToSun;
@@ -343,14 +347,14 @@ class Body {
     this.shader = shader;
 
     this.meshRenderer = meshRenderer;
-
-    this.anchor = Matrix.translate(0, 0, 0);
   }
 
+  // Name getter
   get getName() {
     return this.name;
   }
 
+  // Anchor (3d space position) getter
   get getAnchor() {
     let yearPeriodBodyMat = this.yearPeriodBody();
     let distanceToSunBodyMat = this.distanceToSunBody();
@@ -358,37 +362,46 @@ class Body {
     return Matrix.mult(yearPeriodBodyMat, distanceToSunBodyMat);
   }
 
+  // Scale body
   scaleBody(scale = this.scale) {
     return Matrix.scale(scale);
   }
 
+  // Align body's poles with the scene
   alignBody() {
     return Matrix.rotateX(-90);
   }
 
+  // Day rotation of body
   dayPeriodBody(dayPeriod = this.dayPeriod) {
     return Matrix.rotateY(ewgl.current_time * (360 / dayPeriod));
   }
 
+  // Incline body
   inclineBody(incline = this.incline) {
     return Matrix.rotateX(incline)
   }
 
+  // Translate body to distance to sun
   distanceToSunBody(distanceToSun = this.distanceToSun) {
     return Matrix.translate(distanceToSun, 0, 0);
   }
 
+  // Year rotation of body
   yearPeriodBody(yearPeriod = this.yearPeriod) {
     return Matrix.rotateY((ewgl.current_time * (360 / yearPeriod)) + this.positionOffset);
   }
 }
 
+// Sun class
 class Sun extends Body {
+  // Sun constructor
   constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, lightIntensity) {
     super(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer);
     this.lightIntensity = lightIntensity;
   }
 
+  // Sun render
   render() {
     this.shader.bind();
 
@@ -414,8 +427,10 @@ class Sun extends Body {
     gl.useProgram(null);
   }
 
+  // Sun render path
   renderPath() { }
 
+  // Light position getter
   get getLightPosition() {
     return Matrix.mult(
       ewgl.scene_camera.get_view_matrix(),
@@ -423,12 +438,15 @@ class Sun extends Body {
     ).transform(Vec3());
   }
 
+  // Light intensity getter
   get getLightIntensity() {
     return this.lightIntensity;
   }
 }
 
+// Planet class
 class Planet extends Body {
+  // Planet constructor
   constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun) {
     super(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer);
     this.pathShader = pathShader;
@@ -436,6 +454,7 @@ class Planet extends Body {
     this.sun = sun;
   }
 
+  // Planet render
   render() {
     this.shader.bind();
 
@@ -466,6 +485,7 @@ class Planet extends Body {
     gl.useProgram(null);
   }
 
+  // Planet render path
   renderPath() {
     this.pathShader.bind();
 
@@ -481,7 +501,9 @@ class Planet extends Body {
   }
 }
 
+// Earth class
 class Earth extends Planet {
+  // Earth constructor
   constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun, moonShader) {
     super(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun);
 
@@ -534,6 +556,7 @@ class Earth extends Planet {
     this.moonOrbitPeriod = 29 * EARTH_DAY__PERIOD;
   }
 
+  // Earth (with Moon) render
   render() {
     this.shader.bind();
 
@@ -592,13 +615,16 @@ class Earth extends Planet {
   }
 }
 
+// Saturn class
 class Saturn extends Planet {
+  // Saturn constructor
   constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun) {
     super(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun);
 
     this.ringRenderer = Mesh.Tore(5, 100, 0.1, 0.5).renderer(0, 1, 2);
   }
 
+  // Saturn (with ring) render
   render() {
     this.shader.bind();
 
@@ -643,7 +669,9 @@ class Saturn extends Planet {
   }
 }
 
+// AsteroidBelt class
 class AsteroidBelt {
+  // AsteroidBelt constructor
   constructor(name, distanceToSun, shader, number, threshold) {
     this.name = name;
     this.distanceToSun = distanceToSun;
@@ -700,6 +728,7 @@ class AsteroidBelt {
     });
   }
 
+  // AsteroidBelt render
   render() {
     if (!this.meshRenderer) {
       return;
@@ -716,8 +745,10 @@ class AsteroidBelt {
     gl.useProgram(null);
   }
 
+  // AstetoirBelt render path
   renderPath() { }
 
+  // Anchor (3d space position) getter
   get getAnchor() {
     return Matrix.mult(
       Matrix.rotateY(ewgl.current_time + this.positionOffset),
@@ -726,7 +757,9 @@ class AsteroidBelt {
   }
 }
 
+// Interface class
 class Interface {
+  // Interface constructor
   constructor(bodies) {
     this.bodyNames = [];
     this.selectedBody = 'sun';
@@ -748,10 +781,12 @@ class Interface {
     UserInterface.end();
   }
 
+  // Selected body getter
   get getSelectedBody() {
     return this.selectedBody;
   }
 
+  // Render path boolean getter
   get getRenderPathBool() {
     return this.renderPathBool;
   }
@@ -808,15 +843,13 @@ function init_wgl() {
 
   // Create User Interface
   userInterface = new Interface(bodies);
-
-  gl.clearColor(0, 0, 0, 1);
-  gl.enable(gl.DEPTH_TEST);
 }
 
 // -----------------------------------------------------------------------------
 //  DRAW
 // -----------------------------------------------------------------------------
 function draw_wgl() {
+  // Clear color
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
@@ -838,24 +871,24 @@ function draw_wgl() {
   }
 }
 
-function mousedown_wgl(ev) {
-  // if you want to use mouse interaction
-}
-
-function onkeydown_wgl(k) {
-  // if you want to use keyboard interaction
-}
-
 ewgl.launch_3d();
 
 // #############################################################################
 //  TODO
 // #############################################################################
 
+// function mousedown_wgl(ev) {
+//   // if you want to use mouse interaction
+// }
+
+// function onkeydown_wgl(k) {
+//   // if you want to use keyboard interaction
+// }
+
 // function resize_wgl(w, h) {
 //   let d = Math.pow(2, 3);
 //   fbo1.resize(w / d, h / d);
 //   fbo2.resize(w / d, h / d);
-// Faire varier l'intensite selon la taille
-// glow_intensity = 300 - ((w/100) * (h/100));
+//   // Faire varier l'intensite selon la taille
+//   glow_intensity = 300 - ((w/100) * (h/100));
 // }
