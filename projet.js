@@ -331,28 +331,28 @@ class Body {
     return Matrix.mult(yearPeriodBodyMat, distanceToSunBodyMat);
   }
 
-  scaleBody() {
-    return Matrix.scale(this.scale);
+  scaleBody(scale = this.scale) {
+    return Matrix.scale(scale);
   }
 
   alignBody() {
     return Matrix.rotateX(-90);
   }
 
-  dayPeriodBody() {
-    return Matrix.rotateY(ewgl.current_time * (360 / this.dayPeriod));
+  dayPeriodBody(dayPeriod = this.dayPeriod) {
+    return Matrix.rotateY(ewgl.current_time * (360 / dayPeriod));
   }
 
-  inclineBody() {
-    return Matrix.rotateX(this.incline)
+  inclineBody(incline = this.incline) {
+    return Matrix.rotateX(incline)
   }
 
-  distanceToSunBody() {
-    return Matrix.translate(this.distanceToSun, 0, 0);
+  distanceToSunBody(distanceToSun = this.distanceToSun) {
+    return Matrix.translate(distanceToSun, 0, 0);
   }
 
-  yearPeriodBody() {
-    return Matrix.rotateY((ewgl.current_time * (360 / this.yearPeriod)) + this.positionOffset);
+  yearPeriodBody(yearPeriod = this.yearPeriod) {
+    return Matrix.rotateY((ewgl.current_time * (360 / yearPeriod)) + this.positionOffset);
   }
 }
 
@@ -373,10 +373,8 @@ class Sun extends Body {
     let alignBodyMat = this.alignBody();
     let scaleBodyMat = this.scaleBody();
 
-    this.anchor = this.getAnchor;
-
     let modelMatrix = Matrix.mult(
-      this.anchor,
+      this.getAnchor,
       inclineBodyMat,
       dayPeriodBodyMat,
       alignBodyMat,
@@ -422,10 +420,8 @@ class Planet extends Body {
     let alignBodyMat = this.alignBody();
     let scaleBodyMat = this.scaleBody();
 
-    this.anchor = this.getAnchor;
-
     let modelMatrix = Matrix.mult(
-      this.anchor,
+      this.getAnchor,
       inclineBodyMat,
       dayPeriodBodyMat,
       alignBodyMat,
@@ -459,7 +455,7 @@ class Planet extends Body {
 }
 
 class Earth extends Planet {
-  constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun) {
+  constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun, moonShader) {
     super(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun);
 
     let texClouds = Texture2d(
@@ -491,6 +487,24 @@ class Earth extends Planet {
     );
     texNight.load('images/' + name + '_night.jpg', gl.RGB8);
     this.textureNight = texNight;
+
+    let texMoon = Texture2d(
+      [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+      [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
+      [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
+      [gl.TEXTURE_BASE_LEVEL, 0],
+      [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL],
+      [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE],
+      [gl.TEXTURE_MAX_LEVEL, 5],
+      [gl.TEXTURE_MAX_LOD, 0.0],
+      [gl.TEXTURE_MIN_LOD, 5.0],
+      [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]
+    );
+    texMoon.load('images/moon.jpg', gl.RGB8);
+    this.textureMoon = texMoon;
+
+    this.moonShader = moonShader;
+    this.moonOrbitPeriod = 29 * EARTH_DAY__PERIOD;
   }
 
   render() {
@@ -504,10 +518,8 @@ class Earth extends Planet {
     let alignBodyMat = this.alignBody();
     let scaleBodyMat = this.scaleBody();
 
-    this.anchor = this.getAnchor;
-
     let modelMatrix = Matrix.mult(
-      this.anchor,
+      this.getAnchor,
       inclineBodyMat,
       dayPeriodBodyMat,
       alignBodyMat,
@@ -523,6 +535,82 @@ class Earth extends Planet {
     Uniforms.uLightPosition = this.sun.getLightPosition;
     Uniforms.uLightIntensity = this.sun.getLightIntensity;
     this.meshRenderer.draw(gl.TRIANGLES);
+
+    this.moonShader.bind();
+
+    Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
+    Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
+
+    let moonOrbitPeriodMat = this.yearPeriodBody(this.moonOrbitPeriod);
+    let distanceToEarthMat = this.distanceToSunBody(0.3);
+    dayPeriodBodyMat = this.dayPeriodBody(this.moonOrbitPeriod);
+    scaleBodyMat = this.scaleBody(0.01);
+
+    modelMatrix = Matrix.mult(
+      this.getAnchor,
+      moonOrbitPeriodMat,
+      distanceToEarthMat,
+      dayPeriodBodyMat,
+      alignBodyMat,
+      scaleBodyMat
+    );
+    Uniforms.uModeMat = modelMatrix;
+    mvm = Matrix.mult(ewgl.scene_camera.get_view_matrix(), modelMatrix);
+    Uniforms.uNormMat = mvm.inverse3transpose();
+
+    Uniforms.uTexture = this.textureMoon.bind(0);
+    this.meshRenderer.draw(gl.TRIANGLES);
+
+    gl.useProgram(null);
+  }
+}
+
+class Saturn extends Planet {
+  constructor(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun) {
+    super(name, distanceToSun, scale, incline, yearPeriod, dayPeriod, shader, meshRenderer, pathShader, sun);
+    
+    this.ringRenderer = Mesh.Tore(5, 100, 0.1, 0.5).renderer(0, 1, 2);
+  }
+
+  render() {
+    this.shader.bind();
+
+    Uniforms.uProjMat = ewgl.scene_camera.get_projection_matrix();
+    Uniforms.uViewMat = ewgl.scene_camera.get_view_matrix();
+
+    let inclineBodyMat = this.inclineBody();
+    let dayPeriodBodyMat = this.dayPeriodBody();
+    let alignBodyMat = this.alignBody();
+    let scaleBodyMat = this.scaleBody();
+
+    let modelMatrix = Matrix.mult(
+      this.getAnchor,
+      inclineBodyMat,
+      dayPeriodBodyMat,
+      alignBodyMat,
+      scaleBodyMat
+    );
+    Uniforms.uModeMat = modelMatrix;
+    let mvm = Matrix.mult(ewgl.scene_camera.get_view_matrix(), modelMatrix);
+    Uniforms.uNormMat = mvm.inverse3transpose();
+
+    Uniforms.uTexture = this.texture.bind(0);
+    Uniforms.uLightPosition = this.sun.getLightPosition;
+    Uniforms.uLightIntensity = this.sun.getLightIntensity;
+    this.meshRenderer.draw(gl.TRIANGLES);
+
+    modelMatrix = Matrix.mult(
+      this.getAnchor,
+      Matrix.rotateY(-45),
+      inclineBodyMat,
+      dayPeriodBodyMat,
+      alignBodyMat,
+      Matrix.scale(1.0, 1.0, 0.01)
+    );
+    Uniforms.uModeMat = modelMatrix;
+    mvm = Matrix.mult(ewgl.scene_camera.get_view_matrix(), modelMatrix);
+    Uniforms.uNormMat = mvm.inverse3transpose();
+    this.ringRenderer.draw(gl.TRIANGLES);
 
     gl.useProgram(null);
   }
@@ -651,10 +739,6 @@ let bodies = null;
 let skybox = null;
 let userInterface = null;
 
-let asteroidShader = null;
-let asteroidTexture = null;
-let asteroidRenderer = null;
-
 // -----------------------------------------------------------------------------
 //  INIT
 // -----------------------------------------------------------------------------
@@ -672,7 +756,7 @@ function init_wgl() {
   let basicShader = ShaderProgram(basicVertexShader, basicFragmentShader, 'basicShader');
   let planetShader = ShaderProgram(planetVertexShader, planetFragmentShader, 'planetShader');
   let earthShader = ShaderProgram(planetVertexShader, earthFragmentShader, 'earthShader');
-  asteroidShader = ShaderProgram(asteroidVertexShader, basicFragmentShader, 'asteroidShader');
+  let asteroidShader = ShaderProgram(asteroidVertexShader, basicFragmentShader, 'asteroidShader');
   let mesh = Mesh.Sphere(32);
   let meshRenderer = mesh.renderer(0, 1, 2, 3, 4);
 
@@ -682,11 +766,11 @@ function init_wgl() {
     'sun': sun,
     'mercury': new Planet('mercury', 2.2, 0.02, 0.1, 88.0, 58.64 * EARTH_DAY__PERIOD, planetShader, meshRenderer, basicShader, sun),
     'venus': new Planet('venus', 3, 0.05, 177, 224.7, -243.01 * EARTH_DAY__PERIOD, planetShader, meshRenderer, basicShader, sun),
-    'earth': new Earth('earth', 4.5, 0.1, 24, EARTH_YEAR_PERIOD, EARTH_DAY__PERIOD, earthShader, meshRenderer, basicShader, sun),
+    'earth': new Earth('earth', 4.5, 0.1, 24, EARTH_YEAR_PERIOD, EARTH_DAY__PERIOD, earthShader, meshRenderer, basicShader, sun, planetShader),
     'mars': new Planet('mars', 6, 0.08, 25, 689.0, 24.62, planetShader, meshRenderer, basicShader, sun),
     'asteroidBelt': new AsteroidBelt('asteroids', 11, asteroidShader, 5000, 1.0),
     'jupiter': new Planet('jupiter', 16, 0.4, 3, 11.87 * EARTH_YEAR_PERIOD, 9.92, planetShader, meshRenderer, basicShader, sun),
-    'saturn': new Planet('saturn', 26, 0.3, 27, 29.45 * EARTH_YEAR_PERIOD, 10.65, planetShader, meshRenderer, basicShader, sun),
+    'saturn': new Saturn('saturn', 26, 0.3, 27, 29.45 * EARTH_YEAR_PERIOD, 10.65, planetShader, meshRenderer, basicShader, sun),
     'uranus': new Planet('uranus', 34, 0.2, 98, 84.07 * EARTH_YEAR_PERIOD, 17.24, planetShader, meshRenderer, basicShader, sun),
     'neptune': new Planet('neptune', 40, 0.1, 30, 164.89 * EARTH_YEAR_PERIOD, 16.11, planetShader, meshRenderer, basicShader, sun)
   };
@@ -748,43 +832,3 @@ ewgl.launch_3d();
 // Faire varier l'intensite selon la taille
 // glow_intensity = 300 - ((w/100) * (h/100));
 // }
-
-// Asteroid Belt
-// ---------------------------------------------------------------------------
-
-// Shader Program for asteroids
-// ...
-
-// Create a typed array to contain all the 4x4 model matrices of each asteroid
-//   let nbAsteroids = 0;
-
-//   const matrixData = new Float32Array(4 * 4 * nbAsteroids);
-// For each asteroid
-//   for (let i = 0; i < nbAsteroids; ++i) {
-//     let model;
-
-// Compute a matrix model
-
-// Put the matrix model a the right place in the typed array
-//     let index = 16 * i;
-//     matrixData.set(model.data, index);
-//   }
-
-// VBO for model matrix of each instance
-//   const matrixBuffer = VBO(matrixData);
-
-// Load the .obj mesh and use an instanced renderer (with 4 VBO, to recreate a 4x4 matrix) to get a lot of asteroids
-//   Mesh.loadObjFile("rock/rock.obj").then((meshes) => {
-//     rock_rend = meshes[0].instanced_renderer([
-//       [3, matrixBuffer, 1, 4 * 4, 0 * 4, 4],
-//       [4, matrixBuffer, 1, 4 * 4, 1 * 4, 4],
-//       [5, matrixBuffer, 1, 4 * 4, 2 * 4, 4],
-//       [6, matrixBuffer, 1, 4 * 4, 3 * 4, 4]],
-//       0, 1, 2);
-//   });
-// then, the matrice of an instance can be retrieved in a vertex shader with : layout(location=3) in mat4 instanceMatrix;
-
-
-// ATMOSPHERE (GLOW)
-// Create Shader programs ...
-// Create FBOs with the linked textures ...
