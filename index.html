@@ -5,43 +5,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>EasyWebGL</title>
-	<meta charset="utf-8">
-	<style>
-	body 
-	{
-		margin:40px;
-		background-color: black;
-		color:white;
-		font-size: larger;
-	}
-	a,h1 {color:white;}
-	a:focus {color:yellow;}
-</style>
+	<title>Solar System</title>
 </head>
-<body id="body_list_js">
-	<h1>Demos</h1>
-</body>
 
 <script>
-// Mettez ici la liste de vos scripts:
-liste_js = ["project"];
+	let launcher = "";
+	if ("ontouchstart" in window)
+	{
+		launcher = "launch_tactile.html?";
+		msg = "Tactile device detected";
+	}
+	else
+	{
+		launcher = "launch.html?";
+		msg = "Desktop device detected";
+	}
 
-let bo = document.getElementById("body_list_js")
-let launcher = "";
-if ("ontouchstart" in window)
-{
-	launcher = "launch_tactile.html?";
-	msg = "Tactile device detected";
-}
-else
-{
-	launcher = "launch.html?";
-	msg = "Desktop device detected";
-}
-
-window.location.href = launcher+"project";
-
+	window.location.href = launcher+"project";
 </script>
 	
 </html>
