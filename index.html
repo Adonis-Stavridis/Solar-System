@@ -40,26 +40,7 @@ else
 	msg = "Desktop device detected";
 }
 
-let fjs = window.location.href.split('?');
-if (fjs.length>1)
-{
-	window.location.href = launcher+fjs.slice(1);
-}
-else
-{
-	let p = document.createElement("P");
-	p.innerText = msg;
-	bo.appendChild(p);
-
-	liste_js.forEach(d =>
-	{
-		let anch = document.createElement("A");
-		anch.href =launcher+d;
-		anch.innerText = d
-		bo.appendChild(anch);
-		bo.appendChild(document.createElement("BR"))
-	});
-}
+window.location.href = launcher+"project";
 
 </script>
 	
