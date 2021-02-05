@@ -1,6 +1,11 @@
-"use strict"
+/*jshint esversion: 6 */
+/*globals ewgl, gl, pause_wgl, update_wgl, Uniforms, TextureCubeMap, 
+  unbind_texture_cube, Texture2d, Matrix, Vec3, Mesh, VBO, UserInterface,
+  ShaderProgram
+ */
+/*jshint globalstrict: true*/
 
-var ewgl;
+"use strict";
 
 // #############################################################################
 //  INFORMATION
