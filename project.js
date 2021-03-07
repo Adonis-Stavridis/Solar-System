@@ -158,7 +158,7 @@ void main()
   float uNs = 128.0;
   vec3 viewDirection = normalize(-position_out.xyz);
   vec3 halfDirection = normalize(viewDirection + lightDirection);
-  float specularElement = pow(dot(normal_out, halfDirection), uNs);
+  float specularElement = pow(abs(dot(normal_out, halfDirection)), uNs);
 
   vec3 Is = uLightIntensity * vec3(1.0, 1.0, 1.0) * vec3(specularElement);
   Is /= (uNs + 2.0) / (2.0 * M_PI);
@@ -208,7 +208,7 @@ void main()
   float uNs = 128.0;
   vec3 viewDirection = normalize(-position_out.xyz);
   vec3 halfDirection = normalize(viewDirection + lightDirection);
-  float specularElement = pow(dot(normal_out, halfDirection), uNs);
+  float specularElement = pow(abs(dot(normal_out, halfDirection)), uNs);
 
   vec3 Is = uLightIntensity * vec3(1.0, 1.0, 1.0) * vec3(specularElement);
   Is /= (uNs + 2.0) / (2.0 * M_PI);
